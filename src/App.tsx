@@ -3,12 +3,12 @@ import { TitleBar } from './components/TitleBar';
 import { Header } from './components/Header';
 import { DownloadRow } from './components/DownloadRow';
 import { NewDownloadModal } from './components/NewDownloadModal';
-import { ActiveDownloadModal } from './components/ActiveDownloadModal';
 import { StandaloneDownloadWindow } from './components/StandaloneDownloadWindow';
 import { DownloadItem, EngineStats, NewDownloadPayload } from './types/download';
 import { DownloadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
+  // If this window is a dedicated download popup, render the standalone window!
   const searchParams = new URLSearchParams(window.location.search);
   const popupDownloadId = searchParams.get('popup');
 
@@ -20,7 +20,6 @@ export const App: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [activeModalId, setActiveModalId] = useState<string | null>(null);
   const [defaultPath, setDefaultPath] = useState('');
   const [stats, setStats] = useState<EngineStats>({
     totalSpeedBps: 0,
@@ -109,7 +108,6 @@ export const App: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     await fetch(`http://localhost:5005/api/downloads/${id}`, { method: 'DELETE' });
-    if (activeModalId === id) setActiveModalId(null);
   };
 
   const handleOpenFile = async (filePath: string) => {
@@ -128,13 +126,18 @@ export const App: React.FC = () => {
     });
   };
 
+  // Always open as a real separate OS window or popup!
   const handleOpenDownloadWindow = (id: string) => {
     if ((window as any).electronAPI?.openDownloadWindow) {
-      // Real Native OS Window (Electron)
       (window as any).electronAPI.openDownloadWindow(id);
     } else {
-      // In-App Progress Window or Browser Popup
-      setActiveModalId(id);
+      const left = window.screenX + (window.outerWidth - 580) / 2;
+      const top = window.screenY + (window.outerHeight - 480) / 2;
+      window.open(
+        `/?popup=${id}`,
+        `popup_${id}`,
+        `width=580,height=480,left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes`
+      );
     }
   };
 
@@ -149,8 +152,6 @@ export const App: React.FC = () => {
       handleOpenDownloadWindow(item.id);
     }
   };
-
-  const activeModalItem = downloads.find(d => d.id === activeModalId) || null;
 
   const counts = {
     all: downloads.length,
@@ -235,17 +236,6 @@ export const App: React.FC = () => {
         onClose={() => setIsAddModalOpen(false)}
         onSubmit={handleStartNew}
         defaultFolder={defaultPath}
-      />
-
-      {/* In-App Progress Window Fallback */}
-      <ActiveDownloadModal
-        item={activeModalItem}
-        onClose={() => setActiveModalId(null)}
-        onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
-        onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
-        onCancel={handleDelete}
-        onOpenFile={handleOpenFile}
-        onOpenFolder={handleOpenFolder}
       />
     </div>
   );
