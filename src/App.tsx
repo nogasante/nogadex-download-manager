@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { TitleBar } from './components/TitleBar';
 import { Header } from './components/Header';
 import { DownloadRow } from './components/DownloadRow';
 import { NewDownloadModal } from './components/NewDownloadModal';
@@ -157,6 +158,8 @@ export const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen flex flex-col bg-[#09090b] text-white font-sans overflow-hidden">
+      {/* Native Desktop Window TitleBar */}
+      <TitleBar />
       {/* Clean Linear Header */}
       <Header
         onAddUrl={() => setIsAddModalOpen(true)}
