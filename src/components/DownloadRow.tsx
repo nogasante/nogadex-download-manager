@@ -10,6 +10,7 @@ import {
   ChevronUp, 
   CheckCircle2, 
   AlertCircle,
+  RotateCcw,
   FileArchive,
   Video,
   Music,
@@ -79,7 +80,9 @@ export const DownloadRow: React.FC<DownloadRowProps> = ({
     : (item.status === 'completed' ? 100 : 0);
 
   return (
-    <div className="item-row bg-[#0e0e11] border border-[#222226] rounded-xl p-4 space-y-3 group">
+    <div className={`item-row bg-[#0e0e11] border rounded-xl p-4 space-y-3 group ${
+      item.status === 'error' ? 'border-rose-500/40 bg-rose-950/10' : 'border-[#222226]'
+    }`}>
       {/* Top Line: Icon, Title, Status & Live Speed */}
       <div className="flex items-center justify-between gap-4">
         {/* File Name + Category Icon */}
@@ -95,7 +98,7 @@ export const DownloadRow: React.FC<DownloadRowProps> = ({
             >
               {item.filename}
             </h3>
-            <div className="text-[11px] font-mono text-zinc-500 truncate mt-0.5">
+            <div className="text-[11px] font-mono text-zinc-500 truncate mt-0.5" title={item.destinationPath}>
               {item.destinationPath}
             </div>
           </div>
@@ -130,7 +133,7 @@ export const DownloadRow: React.FC<DownloadRowProps> = ({
             {item.status === 'error' && (
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-400">
                 <AlertCircle className="w-3.5 h-3.5" />
-                {item.error || 'Failed'}
+                Failed
               </span>
             )}
           </div>
@@ -149,7 +152,7 @@ export const DownloadRow: React.FC<DownloadRowProps> = ({
               <button
                 onClick={() => onResume(item.id)}
                 className="p-1.5 rounded-md hover:bg-[#222228] text-[#d8c8b4] hover:text-white transition-colors"
-                title="Resume"
+                title="Retry / Resume"
               >
                 <Play className="w-3.5 h-3.5 fill-[#d8c8b4]/20" />
               </button>
@@ -181,6 +184,19 @@ export const DownloadRow: React.FC<DownloadRowProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Error explanation banner if failed */}
+      {item.status === 'error' && item.error && (
+        <div className="text-[11px] font-mono text-rose-300 bg-rose-950/30 border border-rose-500/20 px-3 py-1.5 rounded-lg flex items-center justify-between">
+          <span>Error: {item.error}</span>
+          <button 
+            onClick={() => onResume(item.id)}
+            className="text-xs underline text-[#d8c8b4] hover:text-white flex items-center gap-1 font-bold"
+          >
+            <RotateCcw className="w-3 h-3" /> Retry Download
+          </button>
+        </div>
+      )}
 
       {/* Middle Progress Bar */}
       <div className="space-y-1.5">

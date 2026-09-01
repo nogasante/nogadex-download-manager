@@ -37,6 +37,15 @@ export class DownloadEngine {
     this.onUpdateCallback();
   }
 
+  private sanitizeFilename(name: string): string {
+    // Strip illegal Windows filesystem characters: / \ : * ? " < > |
+    let sanitized = name.replace(/[\\/:*?"<>|]+/g, '_').trim();
+    // Remove query params or hash remnants if present
+    if (sanitized.includes('?')) sanitized = sanitized.split('?')[0];
+    if (sanitized.includes('#')) sanitized = sanitized.split('#')[0];
+    return sanitized || `download_${Date.now()}.bin`;
+  }
+
   private loadState() {
     try {
       if (fs.existsSync(this.stateFilePath)) {
@@ -84,23 +93,21 @@ export class DownloadEngine {
       fs.mkdirSync(destFolder, { recursive: true });
     }
 
-    let initialName = customFilename || path.basename(new URL(url).pathname) || 'download_file';
-    if (!path.extname(initialName) && initialName === 'download_file') {
-      initialName = `download_${Date.now()}.bin`;
-    }
+    let rawName = customFilename || path.basename(new URL(url).pathname) || 'download_file';
+    let cleanName = this.sanitizeFilename(rawName);
 
     const item: DownloadItem = {
       id,
       url,
-      filename: initialName,
-      destinationPath: path.join(destFolder, initialName),
+      filename: cleanName,
+      destinationPath: path.join(destFolder, cleanName),
       totalBytes: 0,
       downloadedBytes: 0,
       status: 'probing',
       speedBps: 0,
       connections: Math.max(1, Math.min(connections, 64)),
       chunks: [],
-      category: this.detectCategory(initialName),
+      category: this.detectCategory(cleanName),
       resumable: false,
       etaSeconds: 0,
       createdAt: new Date().toISOString(),
@@ -119,6 +126,7 @@ export class DownloadEngine {
     if (!item) return;
 
     item.status = 'probing';
+    item.error = undefined;
     this.notify();
 
     try {
@@ -127,9 +135,17 @@ export class DownloadEngine {
       item.resumable = probe.acceptRanges;
       if (probe.finalUrl) item.url = probe.finalUrl;
       if (probe.filename) {
-        item.filename = probe.filename;
-        item.destinationPath = path.join(path.dirname(item.destinationPath), probe.filename);
-        item.category = this.detectCategory(probe.filename);
+        const cleanName = this.sanitizeFilename(probe.filename);
+        item.filename = cleanName;
+        const targetDir = path.dirname(item.destinationPath);
+        item.destinationPath = path.join(targetDir, cleanName);
+        item.category = this.detectCategory(cleanName);
+      }
+
+      // Ensure directory exists recursively before opening file
+      const dir = path.dirname(item.destinationPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
       }
 
       // Open file for random access writes
@@ -342,9 +358,25 @@ export class DownloadEngine {
 
   public resumeDownload(id: string) {
     const item = this.downloads.get(id);
-    if (!item || (item.status !== 'paused' && item.status !== 'error')) return;
+    if (!item) return;
+
+    // Clean destination directory if needed
+    const dir = path.dirname(item.destinationPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    if (!fs.existsSync(item.destinationPath)) {
+      // Recreate file
+      const fd = fs.openSync(item.destinationPath, 'w+');
+      if (item.totalBytes > 0) {
+        try { fs.ftruncateSync(fd, item.totalBytes); } catch (e) {}
+      }
+      fs.closeSync(fd);
+    }
 
     item.status = 'downloading';
+    item.error = undefined;
     this.notify();
 
     const fd = fs.openSync(item.destinationPath, 'r+');
