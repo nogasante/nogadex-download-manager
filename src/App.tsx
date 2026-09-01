@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { FluentToolbar } from './components/FluentToolbar';
-import { FluentSidebar } from './components/FluentSidebar';
-import { FluentDataTable } from './components/FluentDataTable';
-import { StatusBar } from './components/StatusBar';
+import { Header } from './components/Header';
+import { DownloadRow } from './components/DownloadRow';
 import { NewDownloadModal } from './components/NewDownloadModal';
 import { DownloadItem, EngineStats, NewDownloadPayload } from './types/download';
+import { DownloadCloud, Zap } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [defaultPath, setDefaultPath] = useState('');
@@ -21,7 +19,6 @@ export const App: React.FC = () => {
     speedHistory: new Array(30).fill(0),
   });
 
-  // WebSocket Live Real-Time Stream
   useEffect(() => {
     let ws: WebSocket;
     let reconnectTimer: NodeJS.Timeout;
@@ -56,6 +53,20 @@ export const App: React.FC = () => {
       })
       .catch(() => {});
 
+    // Drag and drop support: Drop any URL or link to trigger download
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      const text = e.dataTransfer?.getData('text');
+      if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
+        handleStartNew({ url: text.trim() });
+      }
+    };
+    const handleDragOver = (e: DragEvent) => e.preventDefault();
+
+    window.addEventListener('drop', handleDrop);
+    window.addEventListener('dragover', handleDragOver);
+
+    // Ctrl+N shortcut
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -67,45 +78,28 @@ export const App: React.FC = () => {
     return () => {
       if (ws) ws.close();
       clearTimeout(reconnectTimer);
+      window.removeEventListener('drop', handleDrop);
+      window.removeEventListener('dragover', handleDragOver);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
 
-  const handleToggleSelect = (id: string) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter(i => i !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedIds.length === filteredDownloads.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredDownloads.map(d => d.id));
-    }
-  };
-
   const handleResumeAll = async () => {
-    const targets = selectedIds.length > 0 ? selectedIds : downloads.filter(d => d.status === 'paused' || d.status === 'error').map(d => d.id);
+    const targets = downloads.filter(d => d.status === 'paused' || d.status === 'error').map(d => d.id);
     for (const id of targets) {
       await fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' });
     }
   };
 
   const handlePauseAll = async () => {
-    const targets = selectedIds.length > 0 ? selectedIds : downloads.filter(d => d.status === 'downloading').map(d => d.id);
+    const targets = downloads.filter(d => d.status === 'downloading').map(d => d.id);
     for (const id of targets) {
       await fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' });
     }
   };
 
-  const handleDeleteSelected = async () => {
-    for (const id of selectedIds) {
-      await fetch(`http://localhost:5005/api/downloads/${id}`, { method: 'DELETE' });
-    }
-    setSelectedIds([]);
+  const handleDelete = async (id: string) => {
+    await fetch(`http://localhost:5005/api/downloads/${id}`, { method: 'DELETE' });
   };
 
   const handleOpenFile = async (filePath: string) => {
@@ -132,66 +126,77 @@ export const App: React.FC = () => {
     });
   };
 
+  const counts = {
+    all: downloads.length,
+    active: downloads.filter(d => d.status === 'downloading' || d.status === 'probing').length,
+    completed: downloads.filter(d => d.status === 'completed').length,
+    paused: downloads.filter(d => d.status === 'paused').length,
+  };
+
   // Filter downloads
   const filteredDownloads = downloads.filter(item => {
     if (searchQuery && !item.filename.toLowerCase().includes(searchQuery.toLowerCase()) && !item.url.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
 
-    if (selectedCategory === 'all') return true;
-    if (selectedCategory === 'active') return item.status === 'downloading' || item.status === 'probing';
-    if (selectedCategory === 'finished') return item.status === 'completed';
-    if (selectedCategory === 'paused') return item.status === 'paused';
-    if (selectedCategory.startsWith('cat_')) {
-      const cat = selectedCategory.replace('cat_', '');
-      return item.category === cat;
-    }
+    if (selectedFilter === 'all') return true;
+    if (selectedFilter === 'active') return item.status === 'downloading' || item.status === 'probing';
+    if (selectedFilter === 'completed') return item.status === 'completed';
+    if (selectedFilter === 'paused') return item.status === 'paused';
     return true;
   });
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-[#0b0e17] text-slate-100 font-sans overflow-hidden">
-      {/* Top Functional Toolbar */}
-      <FluentToolbar
+    <div className="w-screen h-screen flex flex-col bg-[#09090b] text-white font-sans overflow-hidden">
+      {/* Clean Linear Header */}
+      <Header
         onAddUrl={() => setIsAddModalOpen(true)}
         onResumeAll={handleResumeAll}
         onPauseAll={handlePauseAll}
-        onDeleteSelected={handleDeleteSelected}
         onOpenFolder={() => handleOpenFolder()}
         onSearchChange={setSearchQuery}
-        selectedCount={selectedIds.length}
+        selectedFilter={selectedFilter}
+        onSelectFilter={setSelectedFilter}
         stats={stats}
+        counts={counts}
       />
 
-      {/* Main Workspace (Sidebar + Responsive Split Table & Telemetry) */}
-      <div className="flex flex-1 overflow-hidden">
-        <FluentSidebar
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          downloads={downloads}
-          defaultPath={defaultPath}
-        />
+      {/* Main Content List */}
+      <main className="flex-1 overflow-y-auto p-6 max-w-5xl w-full mx-auto space-y-3">
+        {filteredDownloads.length === 0 ? (
+          <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-center p-8 border border-dashed border-[#27272a] rounded-2xl bg-[#0e0e11]/40 space-y-4">
+            <div className="w-12 h-12 rounded-xl bg-[#18181c] border border-[#27272a] flex items-center justify-center text-[#d8c8b4]">
+              <DownloadCloud className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">No downloads found</h3>
+              <p className="text-xs text-zinc-500 mt-1 max-w-sm">
+                Paste any link, drag a URL into this window, or press Ctrl+N to begin.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="px-4 py-2 rounded-lg bg-[#d8c8b4] hover:bg-[#e8ded0] text-black font-semibold text-xs shadow-sm active:scale-95 transition-all"
+            >
+              Add Download
+            </button>
+          </div>
+        ) : (
+          filteredDownloads.map(item => (
+            <DownloadRow
+              key={item.id}
+              item={item}
+              onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
+              onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
+              onDelete={handleDelete}
+              onOpenFile={handleOpenFile}
+              onOpenFolder={handleOpenFolder}
+            />
+          ))
+        )}
+      </main>
 
-        <FluentDataTable
-          downloads={filteredDownloads}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onSelectAll={handleSelectAll}
-          onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
-          onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
-          onOpenFile={handleOpenFile}
-          onOpenFolder={handleOpenFolder}
-        />
-      </div>
-
-      {/* Bottom Global Status Bar */}
-      <StatusBar
-        stats={stats}
-        downloads={downloads}
-        defaultPath={defaultPath}
-      />
-
-      {/* Add New Download Modal */}
+      {/* Modal */}
       <NewDownloadModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
