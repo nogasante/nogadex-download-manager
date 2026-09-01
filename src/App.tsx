@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { DownloadRow } from './components/DownloadRow';
 import { NewDownloadModal } from './components/NewDownloadModal';
+import { ActiveDownloadModal } from './components/ActiveDownloadModal';
 import { DownloadItem, EngineStats, NewDownloadPayload } from './types/download';
-import { DownloadCloud, Zap } from 'lucide-react';
+import { DownloadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [activeModalId, setActiveModalId] = useState<string | null>(null);
   const [defaultPath, setDefaultPath] = useState('');
   const [stats, setStats] = useState<EngineStats>({
     totalSpeedBps: 0,
@@ -53,7 +55,7 @@ export const App: React.FC = () => {
       })
       .catch(() => {});
 
-    // Drag and drop support: Drop any URL or link to trigger download
+    // Drag and drop support
     const handleDrop = (e: DragEvent) => {
       e.preventDefault();
       const text = e.dataTransfer?.getData('text');
@@ -100,6 +102,7 @@ export const App: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     await fetch(`http://localhost:5005/api/downloads/${id}`, { method: 'DELETE' });
+    if (activeModalId === id) setActiveModalId(null);
   };
 
   const handleOpenFile = async (filePath: string) => {
@@ -119,12 +122,18 @@ export const App: React.FC = () => {
   };
 
   const handleStartNew = async (payload: NewDownloadPayload) => {
-    await fetch('http://localhost:5005/api/downloads', {
+    const res = await fetch('http://localhost:5005/api/downloads', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    const item = await res.json();
+    if (item && item.id) {
+      setActiveModalId(item.id); // Automatically pop open the iconic IDM Download Progress Window!
+    }
   };
+
+  const activeModalItem = downloads.find(d => d.id === activeModalId) || null;
 
   const counts = {
     all: downloads.length,
@@ -170,7 +179,7 @@ export const App: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white">No downloads found</h3>
-              <p className="text-xs text-zinc-500 mt-1 max-w-sm">
+              <p className="text-xs text-zinc-500 mt-1 max-w-sm font-mono">
                 Paste any link, drag a URL into this window, or press Ctrl+N to begin.
               </p>
             </div>
@@ -183,25 +192,41 @@ export const App: React.FC = () => {
           </div>
         ) : (
           filteredDownloads.map(item => (
-            <DownloadRow
-              key={item.id}
-              item={item}
-              onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
-              onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
-              onDelete={handleDelete}
-              onOpenFile={handleOpenFile}
-              onOpenFolder={handleOpenFolder}
-            />
+            <div 
+              key={item.id} 
+              onDoubleClick={() => setActiveModalId(item.id)}
+              className="cursor-pointer"
+            >
+              <DownloadRow
+                item={item}
+                onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
+                onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
+                onDelete={handleDelete}
+                onOpenFile={handleOpenFile}
+                onOpenFolder={handleOpenFolder}
+              />
+            </div>
           ))
         )}
       </main>
 
-      {/* Modal */}
+      {/* Add New Download Dialog */}
       <NewDownloadModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSubmit={handleStartNew}
         defaultFolder={defaultPath}
+      />
+
+      {/* Iconic IDM Single Download Progress Window */}
+      <ActiveDownloadModal
+        item={activeModalItem}
+        onClose={() => setActiveModalId(null)}
+        onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
+        onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
+        onCancel={handleDelete}
+        onOpenFile={handleOpenFile}
+        onOpenFolder={handleOpenFolder}
       />
     </div>
   );
