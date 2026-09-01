@@ -4,7 +4,7 @@ import { FluentToolbar } from './components/FluentToolbar';
 import { FluentSidebar } from './components/FluentSidebar';
 import { FluentDataTable } from './components/FluentDataTable';
 import { NewDownloadModal } from './components/NewDownloadModal';
-import { DownloadItem, NewDownloadPayload } from './types/download';
+import { DownloadItem, EngineStats, NewDownloadPayload } from './types/download';
 
 export const App: React.FC = () => {
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
@@ -13,8 +13,15 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [defaultPath, setDefaultPath] = useState('');
+  const [stats, setStats] = useState<EngineStats>({
+    totalSpeedBps: 0,
+    activeDownloadsCount: 0,
+    completedCount: 0,
+    queuedCount: 0,
+    speedHistory: new Array(30).fill(0),
+  });
 
-  // WebSocket Live Synchronization
+  // WebSocket Live Real-Time Telemetry
   useEffect(() => {
     let ws: WebSocket;
     let reconnectTimer: NodeJS.Timeout;
@@ -29,6 +36,7 @@ export const App: React.FC = () => {
           const data = JSON.parse(event.data);
           if (data.type === 'STATE_UPDATE') {
             setDownloads(data.downloads || []);
+            if (data.stats) setStats(data.stats);
           }
         } catch (e) {}
       };
@@ -48,7 +56,7 @@ export const App: React.FC = () => {
       })
       .catch(() => {});
 
-    // Ctrl+N shortcut
+    // Ctrl+N shortcut for New Download
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -80,14 +88,16 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleResumeSelected = async () => {
-    for (const id of selectedIds) {
+  const handleResumeAll = async () => {
+    const targets = selectedIds.length > 0 ? selectedIds : downloads.filter(d => d.status === 'paused' || d.status === 'error').map(d => d.id);
+    for (const id of targets) {
       await fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' });
     }
   };
 
-  const handleStopSelected = async () => {
-    for (const id of selectedIds) {
+  const handlePauseAll = async () => {
+    const targets = selectedIds.length > 0 ? selectedIds : downloads.filter(d => d.status === 'downloading').map(d => d.id);
+    for (const id of targets) {
       await fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' });
     }
   };
@@ -130,8 +140,9 @@ export const App: React.FC = () => {
     }
 
     if (selectedCategory === 'all') return true;
-    if (selectedCategory === 'unfinished') return item.status !== 'completed';
+    if (selectedCategory === 'active') return item.status === 'downloading' || item.status === 'probing';
     if (selectedCategory === 'finished') return item.status === 'completed';
+    if (selectedCategory === 'paused') return item.status === 'paused';
     if (selectedCategory.startsWith('cat_')) {
       const cat = selectedCategory.replace('cat_', '');
       return item.category === cat;
@@ -141,19 +152,21 @@ export const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen flex items-center justify-center p-3 sm:p-6 bg-[#0f121a] overflow-hidden">
-      {/* Centered Solid Fluent Window matching screenshot */}
-      <div className="w-full max-w-6xl h-[90vh] fluent-window rounded-xl flex flex-col overflow-hidden">
+      {/* Centered Fluent Window */}
+      <div className="w-full max-w-6xl h-[92vh] fluent-window rounded-xl flex flex-col overflow-hidden">
         {/* Title Bar */}
-        <TitleBar />
+        <TitleBar activeCount={stats.activeDownloadsCount} />
 
-        {/* Toolbar */}
+        {/* Purpose-Built Action Toolbar */}
         <FluentToolbar
           onAddUrl={() => setIsAddModalOpen(true)}
-          onResumeSelected={handleResumeSelected}
-          onStopSelected={handleStopSelected}
+          onResumeAll={handleResumeAll}
+          onPauseAll={handlePauseAll}
           onDeleteSelected={handleDeleteSelected}
+          onOpenFolder={() => handleOpenFolder()}
           onSearchChange={setSearchQuery}
           selectedCount={selectedIds.length}
+          stats={stats}
         />
 
         {/* Main Body */}
@@ -162,6 +175,7 @@ export const App: React.FC = () => {
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             downloads={downloads}
+            defaultPath={defaultPath}
           />
 
           <FluentDataTable
@@ -171,7 +185,6 @@ export const App: React.FC = () => {
             onSelectAll={handleSelectAll}
             onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
             onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
-            onDelete={(id) => fetch(`http://localhost:5005/api/downloads/${id}`, { method: 'DELETE' })}
             onOpenFile={handleOpenFile}
             onOpenFolder={handleOpenFolder}
           />

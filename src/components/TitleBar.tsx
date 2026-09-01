@@ -1,35 +1,29 @@
 import React from 'react';
-import { Minus, Square, X } from 'lucide-react';
+import { Zap, Minus, Square, X, ShieldCheck } from 'lucide-react';
 
-export const TitleBar: React.FC = () => {
-  const menus = ['Tasks', 'File', 'Downloads', 'View', 'Help', 'Registration'];
+interface TitleBarProps {
+  activeCount: number;
+}
 
+export const TitleBar: React.FC<TitleBarProps> = ({ activeCount }) => {
   return (
     <div className="h-9 px-3.5 bg-[#161926] border-b border-[#282e42] flex items-center justify-between select-none">
-      {/* Left: App Logo & Classic Top Menus */}
-      <div className="flex items-center gap-4">
+      {/* Left: Brand + Status */}
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          {/* Windows 11 IDM Colorful Icon */}
-          <div className="w-4 h-4 rounded-full bg-gradient-to-tr from-amber-400 via-emerald-400 to-cyan-400 flex items-center justify-center p-[1px] shadow-sm">
-            <div className="w-full h-full bg-[#161926] rounded-full flex items-center justify-center text-[8px] font-bold text-cyan-300">
-              ↓
+          <div className="w-5 h-5 rounded-md bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center p-[1px]">
+            <div className="w-full h-full bg-[#161926] rounded-[5px] flex items-center justify-center">
+              <Zap className="w-3 h-3 text-cyan-400 fill-cyan-400/20" />
             </div>
           </div>
-          <span className="text-xs font-semibold text-slate-200 tracking-wide">
-            Internet Download Manager
+          <span className="text-xs font-bold text-slate-100 tracking-wide">
+            HyperDownloader <span className="text-cyan-400 font-mono text-[10px] font-normal px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/20 ml-1">64-THREAD TURBO</span>
           </span>
         </div>
 
-        {/* Menu Bar Items */}
-        <div className="hidden md:flex items-center gap-1 text-[11px] text-slate-400 font-normal">
-          {menus.map((m) => (
-            <button
-              key={m}
-              className="px-2 py-0.5 rounded hover:bg-[#252b3d] hover:text-slate-100 transition-colors"
-            >
-              {m}
-            </button>
-          ))}
+        <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 border-l border-slate-700/60 pl-3">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <span>100% Free & Open-Source</span>
         </div>
       </div>
 
