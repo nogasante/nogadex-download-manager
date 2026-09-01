@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { TitleBar } from './components/TitleBar';
 import { FluentToolbar } from './components/FluentToolbar';
 import { FluentSidebar } from './components/FluentSidebar';
 import { FluentDataTable } from './components/FluentDataTable';
@@ -21,7 +20,7 @@ export const App: React.FC = () => {
     speedHistory: new Array(30).fill(0),
   });
 
-  // WebSocket Live Real-Time Telemetry
+  // WebSocket Live Synchronization
   useEffect(() => {
     let ws: WebSocket;
     let reconnectTimer: NodeJS.Timeout;
@@ -56,7 +55,7 @@ export const App: React.FC = () => {
       })
       .catch(() => {});
 
-    // Ctrl+N shortcut for New Download
+    // Ctrl+N shortcut
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -151,44 +150,38 @@ export const App: React.FC = () => {
   });
 
   return (
-    <div className="w-screen h-screen flex items-center justify-center p-3 sm:p-6 bg-[#0f121a] overflow-hidden">
-      {/* Centered Fluent Window */}
-      <div className="w-full max-w-6xl h-[92vh] fluent-window rounded-xl flex flex-col overflow-hidden">
-        {/* Title Bar */}
-        <TitleBar activeCount={stats.activeDownloadsCount} />
+    <div className="w-screen h-screen flex flex-col bg-[#11141e] text-slate-100 font-sans overflow-hidden">
+      {/* Top Header & Purpose-Built Engine Toolbar */}
+      <FluentToolbar
+        onAddUrl={() => setIsAddModalOpen(true)}
+        onResumeAll={handleResumeAll}
+        onPauseAll={handlePauseAll}
+        onDeleteSelected={handleDeleteSelected}
+        onOpenFolder={() => handleOpenFolder()}
+        onSearchChange={setSearchQuery}
+        selectedCount={selectedIds.length}
+        stats={stats}
+      />
 
-        {/* Purpose-Built Action Toolbar */}
-        <FluentToolbar
-          onAddUrl={() => setIsAddModalOpen(true)}
-          onResumeAll={handleResumeAll}
-          onPauseAll={handlePauseAll}
-          onDeleteSelected={handleDeleteSelected}
-          onOpenFolder={() => handleOpenFolder()}
-          onSearchChange={setSearchQuery}
-          selectedCount={selectedIds.length}
-          stats={stats}
+      {/* Full-Bleed Main Workspace */}
+      <div className="flex flex-1 overflow-hidden">
+        <FluentSidebar
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          downloads={downloads}
+          defaultPath={defaultPath}
         />
 
-        {/* Main Body */}
-        <div className="flex flex-1 overflow-hidden">
-          <FluentSidebar
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-            downloads={downloads}
-            defaultPath={defaultPath}
-          />
-
-          <FluentDataTable
-            downloads={filteredDownloads}
-            selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
-            onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
-            onOpenFile={handleOpenFile}
-            onOpenFolder={handleOpenFolder}
-          />
-        </div>
+        <FluentDataTable
+          downloads={filteredDownloads}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onSelectAll={handleSelectAll}
+          onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
+          onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
+          onOpenFile={handleOpenFile}
+          onOpenFolder={handleOpenFolder}
+        />
       </div>
 
       {/* New Download Modal */}
