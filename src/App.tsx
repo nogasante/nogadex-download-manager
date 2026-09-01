@@ -3,16 +3,23 @@ import { TitleBar } from './components/TitleBar';
 import { Header } from './components/Header';
 import { DownloadRow } from './components/DownloadRow';
 import { NewDownloadModal } from './components/NewDownloadModal';
-import { ActiveDownloadModal } from './components/ActiveDownloadModal';
+import { StandaloneDownloadWindow } from './components/StandaloneDownloadWindow';
 import { DownloadItem, EngineStats, NewDownloadPayload } from './types/download';
 import { DownloadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
+  // Check if this instance is a native secondary OS popup window!
+  const searchParams = new URLSearchParams(window.location.search);
+  const popupDownloadId = searchParams.get('popup');
+
+  if (popupDownloadId) {
+    return <StandaloneDownloadWindow downloadId={popupDownloadId} />;
+  }
+
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [activeModalId, setActiveModalId] = useState<string | null>(null);
   const [defaultPath, setDefaultPath] = useState('');
   const [stats, setStats] = useState<EngineStats>({
     totalSpeedBps: 0,
@@ -69,7 +76,6 @@ export const App: React.FC = () => {
     window.addEventListener('drop', handleDrop);
     window.addEventListener('dragover', handleDragOver);
 
-    // Ctrl+N shortcut
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -103,7 +109,6 @@ export const App: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     await fetch(`http://localhost:5005/api/downloads/${id}`, { method: 'DELETE' });
-    if (activeModalId === id) setActiveModalId(null);
   };
 
   const handleOpenFile = async (filePath: string) => {
@@ -130,11 +135,18 @@ export const App: React.FC = () => {
     });
     const item = await res.json();
     if (item && item.id) {
-      setActiveModalId(item.id); // Automatically pop open the iconic IDM Download Progress Window!
+      // Spawn a real, independent native OS window on the desktop!
+      if ((window as any).electronAPI?.openDownloadWindow) {
+        (window as any).electronAPI.openDownloadWindow(item.id);
+      }
     }
   };
 
-  const activeModalItem = downloads.find(d => d.id === activeModalId) || null;
+  const handleOpenNativePopup = (id: string) => {
+    if ((window as any).electronAPI?.openDownloadWindow) {
+      (window as any).electronAPI.openDownloadWindow(id);
+    }
+  };
 
   const counts = {
     all: downloads.length,
@@ -143,7 +155,6 @@ export const App: React.FC = () => {
     paused: downloads.filter(d => d.status === 'paused').length,
   };
 
-  // Filter downloads
   const filteredDownloads = downloads.filter(item => {
     if (searchQuery && !item.filename.toLowerCase().includes(searchQuery.toLowerCase()) && !item.url.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
@@ -160,6 +171,7 @@ export const App: React.FC = () => {
     <div className="w-screen h-screen flex flex-col bg-[#09090b] text-white font-sans overflow-hidden">
       {/* Native Desktop Window TitleBar */}
       <TitleBar />
+
       {/* Clean Linear Header */}
       <Header
         onAddUrl={() => setIsAddModalOpen(true)}
@@ -197,7 +209,7 @@ export const App: React.FC = () => {
           filteredDownloads.map(item => (
             <div 
               key={item.id} 
-              onDoubleClick={() => setActiveModalId(item.id)}
+              onDoubleClick={() => handleOpenNativePopup(item.id)}
               className="cursor-pointer"
             >
               <DownloadRow
@@ -219,17 +231,6 @@ export const App: React.FC = () => {
         onClose={() => setIsAddModalOpen(false)}
         onSubmit={handleStartNew}
         defaultFolder={defaultPath}
-      />
-
-      {/* Iconic IDM Single Download Progress Window */}
-      <ActiveDownloadModal
-        item={activeModalItem}
-        onClose={() => setActiveModalId(null)}
-        onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
-        onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
-        onCancel={handleDelete}
-        onOpenFile={handleOpenFile}
-        onOpenFolder={handleOpenFolder}
       />
     </div>
   );

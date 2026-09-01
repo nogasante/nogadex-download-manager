@@ -4,9 +4,8 @@ const { fork } = require('child_process');
 
 let mainWindow = null;
 let engineProcess = null;
-let tray = null;
+const downloadWindows = new Map(); // id -> BrowserWindow
 
-// Start the internal 64-Thread Engine server
 function startEngine() {
   const serverPath = path.join(__dirname, '..', 'server', 'server.ts');
   const tsxPath = path.join(__dirname, '..', 'node_modules', 'tsx', 'dist', 'cli.mjs');
@@ -27,7 +26,7 @@ function createMainWindow() {
     height: 720,
     minWidth: 850,
     minHeight: 550,
-    frame: false, // Frameless for custom native dark titlebar
+    frame: false,
     backgroundColor: '#09090b',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -48,23 +47,64 @@ function createMainWindow() {
   });
 }
 
-// IPC Window Controls
-ipcMain.on('window-minimize', () => {
-  if (mainWindow) mainWindow.minimize();
+// Open Real Separate Native OS Download Window
+function openDownloadWindow(downloadId) {
+  if (downloadWindows.has(downloadId)) {
+    const existing = downloadWindows.get(downloadId);
+    existing.focus();
+    return;
+  }
+
+  const win = new BrowserWindow({
+    width: 580,
+    height: 480,
+    minWidth: 500,
+    minHeight: 400,
+    frame: false,
+    backgroundColor: '#121215',
+    title: 'HyperDownloader - File Progress',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  const isDev = process.env.NODE_ENV !== 'production';
+  const url = isDev 
+    ? `http://localhost:5173/?popup=${downloadId}`
+    : `file://${path.join(__dirname, '..', 'dist', 'index.html')}?popup=${downloadId}`;
+
+  win.loadURL(url);
+
+  win.on('closed', () => {
+    downloadWindows.delete(downloadId);
+  });
+
+  downloadWindows.set(downloadId, win);
+}
+
+// IPC Handlers
+ipcMain.on('window-minimize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.minimize();
 });
 
-ipcMain.on('window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
-    }
+ipcMain.on('window-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
   }
 });
 
-ipcMain.on('window-close', () => {
-  if (mainWindow) mainWindow.close();
+ipcMain.on('window-close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) win.close();
+});
+
+ipcMain.on('open-download-window', (event, downloadId) => {
+  openDownloadWindow(downloadId);
 });
 
 ipcMain.on('show-notification', (event, { title, body }) => {
