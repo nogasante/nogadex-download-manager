@@ -4,73 +4,63 @@
 
 @layer base {
   :root {
-    --fluent-bg: #131620;
-    --fluent-panel: #1b1f2e;
-    --fluent-sidebar: #161926;
-    --fluent-border: #2b3145;
-    --fluent-border-subtle: #222738;
-    --fluent-accent: #3b82f6;
-    --fluent-text-main: #f1f5f9;
-    --fluent-text-muted: #94a3b8;
-    --fluent-text-dim: #64748b;
+    --bg-base: #0a0d14;
+    --bg-surface: #101420;
+    --bg-card: #151b2b;
+    --bg-card-hover: #1c2438;
+    --border-subtle: #1f273d;
+    --border-strong: #2d3855;
+    --accent-cyan: #06b6d4;
+    --accent-blue: #3b82f6;
+    --accent-emerald: #10b981;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
   }
 
   body {
-    background-color: #0f121a;
-    color: var(--fluent-text-main);
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     user-select: none;
     -webkit-user-select: none;
     overflow: hidden;
   }
 }
 
-/* Solid Crisp Windows 11 Fluent Container */
-.fluent-window {
-  background-color: #1a1d2b;
-  border: 1px solid #2d3448;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-}
-
-.fluent-toolbar-btn {
-  background-color: #222738;
-  border: 1px solid #2e354c;
-  color: #e2e8f0;
-  transition: all 0.12s ease;
-}
-.fluent-toolbar-btn:hover {
-  background-color: #2b3249;
-  border-color: #3f4968;
-  color: #ffffff;
-}
-.fluent-toolbar-btn:active {
-  transform: scale(0.98);
-  background-color: #1e2333;
-}
-
-/* Custom Clean Scrollbar */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #151824;
+  background: #0a0d14;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333c56;
-  border-radius: 4px;
+  background: #232c44;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #475476;
+  background: #3b476c;
 }
 
-/* Data Table Row */
-.fluent-row {
-  transition: background-color 0.1s ease;
+/* Smooth Table Row Transitions */
+.download-row {
+  transition: all 0.15s ease-in-out;
 }
-.fluent-row:hover {
-  background-color: #212638;
+.download-row:hover {
+  background-color: rgba(28, 36, 56, 0.6);
 }
-.fluent-row.selected {
-  background-color: #1e3a8a33;
+.download-row.selected {
+  background-color: rgba(59, 130, 246, 0.12);
+  border-left: 3px solid #3b82f6;
+}
+
+/* Pulse animation for active chunk blocks */
+@keyframes chunk-glow {
+  0%, 100% { filter: brightness(1); opacity: 0.9; }
+  50% { filter: brightness(1.3); opacity: 1; }
+}
+.chunk-active {
+  animation: chunk-glow 1.2s infinite ease-in-out;
 }

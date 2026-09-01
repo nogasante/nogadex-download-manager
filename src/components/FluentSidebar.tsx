@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
+  Layers, 
   DownloadCloud, 
+  CheckCircle2, 
+  PauseCircle, 
   FileArchive, 
   FileText, 
   Music, 
   FileCode, 
   Video, 
-  ChevronDown, 
-  ChevronRight,
-  PauseCircle,
-  CheckCircle2,
-  HardDrive
+  HardDrive,
+  Cpu
 } from 'lucide-react';
 import { DownloadItem } from '../types/download';
 
@@ -27,8 +27,6 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
   downloads,
   defaultPath,
 }) => {
-  const [allExpanded, setAllExpanded] = useState(true);
-
   const counts = {
     all: downloads.length,
     active: downloads.filter(d => d.status === 'downloading' || d.status === 'probing').length,
@@ -41,7 +39,14 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
     video: downloads.filter(d => d.category === 'video').length,
   };
 
-  const subCategories = [
+  const statusFilters = [
+    { id: 'all', label: 'All Downloads', icon: Layers, count: counts.all },
+    { id: 'active', label: 'Downloading', icon: DownloadCloud, count: counts.active, activeClass: 'text-cyan-400' },
+    { id: 'finished', label: 'Finished', icon: CheckCircle2, count: counts.completed, activeClass: 'text-emerald-400' },
+    { id: 'paused', label: 'Paused', icon: PauseCircle, count: counts.paused, activeClass: 'text-amber-400' },
+  ];
+
+  const categoryFilters = [
     { id: 'cat_compressed', label: 'Compressed', icon: FileArchive, count: counts.compressed },
     { id: 'cat_document', label: 'Documents', icon: FileText, count: counts.document },
     { id: 'cat_audio', label: 'Music & Audio', icon: Music, count: counts.audio },
@@ -50,128 +55,90 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
   ];
 
   return (
-    <aside className="w-56 border-r border-[#282e42] bg-[#161926] p-3 select-none flex flex-col justify-between overflow-y-auto">
-      <div className="space-y-4">
-        <div className="text-[11px] text-slate-500 font-semibold px-2">
-          Categories
-        </div>
-
-        {/* All Downloads Group */}
-        <div className="space-y-0.5">
-          <div
-            onClick={() => onSelectCategory('all')}
-            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-              selectedCategory === 'all'
-                ? 'bg-cyan-600/25 text-cyan-300 font-semibold'
-                : 'text-slate-300 hover:bg-[#202538]'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <DownloadCloud className="w-3.5 h-3.5 text-cyan-400" />
-              <span>All Downloads</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] font-mono text-slate-500">{counts.all}</span>
+    <aside className="w-60 border-r border-[#1f273d] bg-[#0c101a] p-3.5 select-none flex flex-col justify-between overflow-y-auto">
+      <div className="space-y-6">
+        {/* Status Views */}
+        <div className="space-y-1">
+          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 px-2.5 mb-2">
+            Status
+          </div>
+          {statusFilters.map(item => {
+            const Icon = item.icon;
+            const isSelected = selectedCategory === item.id;
+            return (
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setAllExpanded(!allExpanded);
-                }}
-                className="p-0.5 text-slate-500 hover:text-slate-300"
+                key={item.id}
+                onClick={() => onSelectCategory(item.id)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  isSelected
+                    ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#151b2b]'
+                }`}
               >
-                {allExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                <div className="flex items-center gap-2.5">
+                  <Icon className={`w-4 h-4 ${isSelected ? 'text-cyan-400' : 'text-slate-500'}`} />
+                  <span>{item.label}</span>
+                </div>
+                {item.count > 0 && (
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                    isSelected ? 'bg-cyan-500/25 text-cyan-200' : 'bg-[#151b2b] text-slate-500'
+                  }`}>
+                    {item.count}
+                  </span>
+                )}
               </button>
-            </div>
-          </div>
-
-          {/* Sub Categories indented */}
-          {allExpanded && (
-            <div className="pl-5 space-y-0.5 mt-0.5">
-              {subCategories.map((sub) => {
-                const Icon = sub.icon;
-                const isSelected = selectedCategory === sub.id;
-                return (
-                  <div
-                    key={sub.id}
-                    onClick={() => onSelectCategory(sub.id)}
-                    className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-cyan-600/20 text-cyan-300 font-medium'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-[#202538]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{sub.label}</span>
-                    </div>
-                    {sub.count > 0 && (
-                      <span className="text-[10px] font-mono text-slate-500">{sub.count}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+            );
+          })}
         </div>
 
-        {/* Downloading / Active */}
-        <div
-          onClick={() => onSelectCategory('active')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-            selectedCategory === 'active'
-              ? 'bg-cyan-600/25 text-cyan-300 font-semibold'
-              : 'text-slate-300 hover:bg-[#202538]'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <DownloadCloud className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-            <span>Downloading</span>
+        {/* Categories */}
+        <div className="space-y-1">
+          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 px-2.5 mb-2">
+            Categories
           </div>
-          <span className="text-[10px] font-mono text-cyan-400 font-bold">{counts.active}</span>
-        </div>
-
-        {/* Finished / Complete */}
-        <div
-          onClick={() => onSelectCategory('finished')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-            selectedCategory === 'finished'
-              ? 'bg-emerald-600/25 text-emerald-300 font-semibold'
-              : 'text-slate-300 hover:bg-[#202538]'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Finished</span>
-          </div>
-          <span className="text-[10px] font-mono text-slate-500">{counts.completed}</span>
-        </div>
-
-        {/* Paused */}
-        <div
-          onClick={() => onSelectCategory('paused')}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-            selectedCategory === 'paused'
-              ? 'bg-amber-600/25 text-amber-300 font-semibold'
-              : 'text-slate-300 hover:bg-[#202538]'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <PauseCircle className="w-3.5 h-3.5 text-amber-400" />
-            <span>Paused</span>
-          </div>
-          <span className="text-[10px] font-mono text-slate-500">{counts.paused}</span>
+          {categoryFilters.map(item => {
+            const Icon = item.icon;
+            const isSelected = selectedCategory === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onSelectCategory(item.id)}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-all ${
+                  isSelected
+                    ? 'bg-[#182136] text-cyan-300 font-medium'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#151b2b]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Icon className="w-3.5 h-3.5 text-slate-500" />
+                  <span>{item.label}</span>
+                </div>
+                {item.count > 0 && (
+                  <span className="text-[10px] font-mono text-slate-500">
+                    {item.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Save Folder Footprint */}
-      <div className="p-2.5 rounded-lg bg-[#11141e] border border-[#252b3d] text-[10px] space-y-1 font-mono text-slate-400">
-        <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
-          <HardDrive className="w-3 h-3" />
-          <span>SAVE LOCATION</span>
+      {/* Storage Disk Path Info */}
+      <div className="p-3 rounded-xl bg-[#111522] border border-[#1e2538] space-y-2 text-[11px] font-mono">
+        <div className="flex items-center justify-between text-slate-400">
+          <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[10px] uppercase">
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Engine</span>
+          </div>
+          <span className="text-[9px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/20">
+            Direct I/O
+          </span>
         </div>
-        <p className="truncate text-slate-400 text-[10px]" title={defaultPath}>
+        <div className="text-[10px] text-slate-400 truncate" title={defaultPath}>
+          <span className="text-slate-500 block text-[9px] uppercase">Destination:</span>
           {defaultPath || 'Downloads/HyperDownloader'}
-        </p>
+        </div>
       </div>
     </aside>
   );

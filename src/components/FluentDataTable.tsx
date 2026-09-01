@@ -1,6 +1,24 @@
 import React, { useState } from 'react';
 import { DownloadItem } from '../types/download';
-import { FileArchive, Video, Music, FileCode, FileText, File, Play, Pause, FolderOpen, ExternalLink, Zap } from 'lucide-react';
+import { 
+  FileArchive, 
+  Video, 
+  Music, 
+  FileCode, 
+  FileText, 
+  File, 
+  Play, 
+  Pause, 
+  FolderOpen, 
+  ExternalLink, 
+  Zap, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle,
+  HardDrive,
+  Layers,
+  Sparkles
+} from 'lucide-react';
 import { ChunkVisualizer } from './ChunkVisualizer';
 
 interface FluentDataTableProps {
@@ -24,10 +42,12 @@ export const FluentDataTable: React.FC<FluentDataTableProps> = ({
   onOpenFile,
   onOpenFolder,
 }) => {
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [inspectedId, setInspectedId] = useState<string | null>(downloads.length > 0 ? downloads[0].id : null);
+
+  const inspectedItem = downloads.find(d => d.id === inspectedId) || (downloads.length > 0 ? downloads[0] : null);
 
   const formatBytes = (bytes: number) => {
-    if (!bytes || bytes === 0) return '--';
+    if (!bytes || bytes === 0) return '0 B';
     if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
     if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -35,7 +55,7 @@ export const FluentDataTable: React.FC<FluentDataTableProps> = ({
   };
 
   const formatSpeed = (bps: number) => {
-    if (!bps || bps === 0) return '';
+    if (!bps || bps === 0) return '0 B/s';
     if (bps >= 1024 * 1024 * 1024) return `${(bps / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
     if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(2)} MB/s`;
     if (bps >= 1024) return `${(bps / 1024).toFixed(1)} KB/s`;
@@ -43,7 +63,7 @@ export const FluentDataTable: React.FC<FluentDataTableProps> = ({
   };
 
   const formatEta = (seconds: number) => {
-    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '';
+    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '--';
     if (seconds < 60) return `${seconds}s`;
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -55,7 +75,7 @@ export const FluentDataTable: React.FC<FluentDataTableProps> = ({
   const formatDate = (iso: string) => {
     try {
       const d = new Date(iso);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
       return '';
     }
@@ -63,147 +83,172 @@ export const FluentDataTable: React.FC<FluentDataTableProps> = ({
 
   const getFileIcon = (category: string, filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase();
-    if (['zip', 'rar', '7z', 'iso'].includes(ext || '')) return <FileArchive className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />;
-    if (['mp4', 'mkv', 'avi', 'mov'].includes(ext || '')) return <Video className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />;
-    if (['mp3', 'wav', 'flac'].includes(ext || '')) return <Music className="w-3.5 h-3.5 text-pink-400 flex-shrink-0" />;
-    if (['exe', 'msi'].includes(ext || '')) return <FileCode className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />;
-    if (['pdf', 'docx', 'txt', 'ppt', 'pptx'].includes(ext || '')) return <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />;
-    return <File className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />;
+    if (['zip', 'rar', '7z', 'iso', 'tar', 'gz'].includes(ext || '')) return <FileArchive className="w-4 h-4 text-amber-400 flex-shrink-0" />;
+    if (['mp4', 'mkv', 'avi', 'mov', 'webm'].includes(ext || '')) return <Video className="w-4 h-4 text-indigo-400 flex-shrink-0" />;
+    if (['mp3', 'wav', 'flac', 'aac'].includes(ext || '')) return <Music className="w-4 h-4 text-pink-400 flex-shrink-0" />;
+    if (['exe', 'msi', 'dmg', 'pkg'].includes(ext || '')) return <FileCode className="w-4 h-4 text-cyan-400 flex-shrink-0" />;
+    if (['pdf', 'docx', 'txt', 'ppt', 'xlsx'].includes(ext || '')) return <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />;
+    return <File className="w-4 h-4 text-slate-400 flex-shrink-0" />;
+  };
+
+  const getStatusBadge = (item: DownloadItem) => {
+    const percent = item.totalBytes > 0 
+      ? Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100))
+      : 0;
+
+    switch (item.status) {
+      case 'completed':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950/80 border border-emerald-500/30 text-emerald-400">
+            <CheckCircle2 className="w-3 h-3" />
+            Complete
+          </span>
+        );
+      case 'downloading':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-950/80 border border-cyan-500/30 text-cyan-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+            {percent}% ({formatSpeed(item.speedBps)})
+          </span>
+        );
+      case 'paused':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-950/70 border border-amber-500/30 text-amber-300">
+            <Pause className="w-3 h-3" />
+            Paused ({percent}%)
+          </span>
+        );
+      case 'error':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-950/80 border border-rose-500/30 text-rose-300">
+            <AlertCircle className="w-3 h-3" />
+            Failed
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400">
+            Connecting...
+          </span>
+        );
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#131622] select-none">
-      {/* Table Header */}
-      <div className="h-8 border-b border-[#282e42] bg-[#181c2b] flex items-center text-[11px] font-semibold text-slate-400 px-3">
-        <div className="w-6 flex items-center justify-center">
-          <input
-            type="checkbox"
-            checked={downloads.length > 0 && selectedIds.length === downloads.length}
-            onChange={onSelectAll}
-            className="rounded border-[#39425e] bg-[#10131c] text-blue-600 focus:ring-0 cursor-pointer"
-          />
-        </div>
-        <div className="flex-1 min-w-[200px] px-2">File name</div>
-        <div className="w-16 text-center text-cyan-400 font-mono text-[10px]">Threads</div>
-        <div className="w-24 px-2 text-right">Size</div>
-        <div className="w-32 px-2 text-left">Progress & Status</div>
-        <div className="w-20 px-2 text-right">Time Left</div>
-        <div className="w-24 px-2 text-right">Transfer rate</div>
-        <div className="w-36 px-2 text-right">Added Date</div>
-        <div className="w-20 px-2 text-center">Actions</div>
-      </div>
-
-      {/* Table Rows */}
-      <div className="flex-1 overflow-y-auto">
-        {downloads.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-              <Zap className="w-6 h-6 text-cyan-400" />
-            </div>
-            <div className="text-xs font-semibold text-slate-300">No downloads yet</div>
-            <p className="text-[11px] text-slate-500 max-w-sm">
-              Click <span className="text-cyan-400 font-semibold font-mono">+ New Download</span> above or press <kbd className="px-1 py-0.5 rounded bg-slate-800 text-slate-300">Ctrl+N</kbd> to start multi-stream downloading.
-            </p>
+    <div className="flex-1 flex flex-col overflow-hidden bg-[#090d16] select-none">
+      {/* Upper Data Table (Flexible height) */}
+      <div className="flex-1 flex flex-col overflow-hidden border-b border-[#1f273d]">
+        {/* Table Header */}
+        <div className="h-9 bg-[#0e1320] border-b border-[#1f273d] flex items-center text-[11px] font-bold text-slate-400 px-4 font-mono">
+          <div className="w-7 flex items-center justify-center">
+            <input
+              type="checkbox"
+              checked={downloads.length > 0 && selectedIds.length === downloads.length}
+              onChange={onSelectAll}
+              className="rounded border-[#344060] bg-[#0c101a] text-blue-600 focus:ring-0 cursor-pointer"
+            />
           </div>
-        ) : (
-          downloads.map((item) => {
-            const isSelected = selectedIds.includes(item.id);
-            const isExpanded = expandedItemId === item.id;
-            const percent = item.totalBytes > 0 
-              ? Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100))
-              : (item.status === 'completed' ? 100 : 0);
+          <div className="flex-1 min-w-[240px] px-3">File Name</div>
+          <div className="w-20 text-center">Streams</div>
+          <div className="w-28 px-3 text-right">Size</div>
+          <div className="w-48 px-3 text-left">Status & Progress</div>
+          <div className="w-24 px-3 text-right">Time Left</div>
+          <div className="w-40 px-3 text-right">Added Date</div>
+          <div className="w-24 px-3 text-center">Actions</div>
+        </div>
 
-            let statusText = 'Connecting...';
-            if (item.status === 'completed') statusText = 'Complete';
-            else if (item.status === 'downloading') statusText = `${percent.toFixed(1)}%`;
-            else if (item.status === 'paused') statusText = `${percent.toFixed(1)}% (Paused)`;
-            else if (item.status === 'error') statusText = 'Failed';
+        {/* Table Rows */}
+        <div className="flex-1 overflow-y-auto divide-y divide-[#171e2e]">
+          {downloads.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+                <Zap className="w-6 h-6 text-cyan-400" />
+              </div>
+              <div className="text-sm font-bold text-slate-200">No active downloads</div>
+              <p className="text-xs text-slate-500 max-w-sm font-mono">
+                Click "+ New Download" or press Ctrl+N to start 64-thread accelerated downloading.
+              </p>
+            </div>
+          ) : (
+            downloads.map((item) => {
+              const isSelected = selectedIds.includes(item.id);
+              const isInspected = inspectedId === item.id;
+              const percent = item.totalBytes > 0 
+                ? Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100))
+                : (item.status === 'completed' ? 100 : 0);
 
-            return (
-              <React.Fragment key={item.id}>
+              return (
                 <div
-                  onClick={() => onToggleSelect(item.id)}
+                  key={item.id}
+                  onClick={() => {
+                    setInspectedId(item.id);
+                  }}
                   onDoubleClick={() => item.status === 'completed' && onOpenFile(item.destinationPath)}
-                  className={`fluent-row h-9 flex items-center text-xs border-b border-[#1c2130] px-3 cursor-pointer ${
-                    isSelected ? 'selected' : ''
-                  }`}
+                  className={`download-row h-11 flex items-center text-xs px-4 cursor-pointer ${
+                    isInspected ? 'bg-[#172033] border-l-2 border-cyan-400' : ''
+                  } ${isSelected ? 'selected' : ''}`}
                 >
                   {/* Checkbox */}
-                  <div className="w-6 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                  <div className="w-7 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => onToggleSelect(item.id)}
-                      className="rounded border-[#39425e] bg-[#10131c] text-blue-600 focus:ring-0 cursor-pointer"
+                      className="rounded border-[#344060] bg-[#0c101a] text-blue-600 focus:ring-0 cursor-pointer"
                     />
                   </div>
 
                   {/* File Name + Icon */}
-                  <div className="flex-1 min-w-[200px] px-2 flex items-center gap-2 truncate">
+                  <div className="flex-1 min-w-[240px] px-3 flex items-center gap-3 truncate">
                     {getFileIcon(item.category, item.filename)}
-                    <span 
-                      className="truncate text-slate-200 font-medium hover:text-cyan-400 transition-colors" 
-                      title={item.filename}
-                    >
-                      {item.filename}
-                    </span>
+                    <div className="truncate min-w-0">
+                      <span className="truncate text-slate-100 font-semibold hover:text-cyan-400 transition-colors block text-xs" title={item.filename}>
+                        {item.filename}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono truncate block" title={item.url}>
+                        {item.url}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Thread Count / Visualizer Toggle */}
-                  <div 
-                    className="w-16 flex items-center justify-center"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedItemId(isExpanded ? null : item.id);
-                    }}
-                  >
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#1d2336] text-cyan-400 hover:bg-cyan-950 border border-cyan-500/30 transition-colors cursor-pointer" title="Click to view parallel chunk streams">
-                      {item.chunks?.length || item.connections}x
+                  {/* Threads Badge */}
+                  <div className="w-20 flex items-center justify-center font-mono">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#131b2c] border border-cyan-500/30 text-cyan-300">
+                      {item.chunks?.length || item.connections}x Turbo
                     </span>
                   </div>
 
                   {/* Size */}
-                  <div className="w-24 px-2 text-right text-slate-300 font-mono text-[11px]">
+                  <div className="w-28 px-3 text-right text-slate-300 font-mono text-[11px] font-medium">
                     {formatBytes(item.totalBytes || item.downloadedBytes)}
                   </div>
 
-                  {/* Status with mini progress bar */}
-                  <div className="w-32 px-2 flex items-center gap-2 text-[11px] font-mono">
+                  {/* Status Badge & Mini Progress Bar */}
+                  <div className="w-48 px-3 flex flex-col justify-center gap-1">
+                    {getStatusBadge(item)}
                     {item.status === 'downloading' && (
-                      <div className="w-12 h-1.5 bg-[#252b3d] rounded-full overflow-hidden flex-shrink-0">
-                        <div className="h-full bg-cyan-400 rounded-full transition-all duration-200" style={{ width: `${percent}%` }} />
+                      <div className="w-full h-1 bg-[#1a2236] rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300" style={{ width: `${percent}%` }} />
                       </div>
                     )}
-                    <span className={`truncate ${
-                      item.status === 'completed' ? 'text-emerald-400 font-medium' :
-                      item.status === 'downloading' ? 'text-cyan-300 font-bold' :
-                      item.status === 'error' ? 'text-rose-400' : 'text-slate-400'
-                    }`}>
-                      {statusText}
-                    </span>
                   </div>
 
                   {/* Time Left */}
-                  <div className="w-20 px-2 text-right text-slate-400 font-mono text-[11px]">
-                    {item.status === 'downloading' ? formatEta(item.etaSeconds) : ''}
-                  </div>
-
-                  {/* Transfer Rate */}
-                  <div className="w-24 px-2 text-right text-emerald-400 font-mono text-[11px] font-bold">
-                    {item.status === 'downloading' ? formatSpeed(item.speedBps) : ''}
+                  <div className="w-24 px-3 text-right text-slate-400 font-mono text-[11px]">
+                    {item.status === 'downloading' ? formatEta(item.etaSeconds) : '--'}
                   </div>
 
                   {/* Added Date */}
-                  <div className="w-36 px-2 text-right text-slate-500 font-mono text-[11px] truncate">
+                  <div className="w-40 px-3 text-right text-slate-400 font-mono text-[11px] truncate">
                     {formatDate(item.createdAt)}
                   </div>
 
-                  {/* Quick Action Buttons */}
-                  <div className="w-20 px-2 flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  {/* Actions */}
+                  <div className="w-24 px-3 flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                     {item.status === 'downloading' ? (
                       <button
                         onClick={() => onPause(item.id)}
-                        className="p-1 rounded hover:bg-slate-700 text-slate-300 hover:text-white"
+                        className="p-1.5 rounded-lg bg-[#161c2c] hover:bg-[#20293f] text-slate-300 hover:text-white transition-all"
                         title="Pause"
                       >
                         <Pause className="w-3.5 h-3.5 text-amber-400" />
@@ -211,7 +256,7 @@ export const FluentDataTable: React.FC<FluentDataTableProps> = ({
                     ) : item.status === 'paused' || item.status === 'error' ? (
                       <button
                         onClick={() => onResume(item.id)}
-                        className="p-1 rounded hover:bg-slate-700 text-slate-300 hover:text-white"
+                        className="p-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/30 text-cyan-300 transition-all"
                         title="Resume"
                       >
                         <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400/20" />
@@ -219,34 +264,62 @@ export const FluentDataTable: React.FC<FluentDataTableProps> = ({
                     ) : (
                       <button
                         onClick={() => onOpenFile(item.destinationPath)}
-                        className="p-1 rounded hover:bg-slate-700 text-slate-300 hover:text-white"
+                        className="p-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-400 transition-all"
                         title="Open File"
                       >
-                        <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </button>
                     )}
 
                     <button
                       onClick={() => onOpenFolder(item.destinationPath)}
-                      className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
+                      className="p-1.5 rounded-lg bg-[#161c2c] hover:bg-[#20293f] text-slate-400 hover:text-white transition-all"
                       title="Show in Folder"
                     >
                       <FolderOpen className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-
-                {/* Expanded 64-Thread Chunk Visualizer Panel */}
-                {isExpanded && item.chunks && item.chunks.length > 0 && (
-                  <div className="bg-[#181c2b] border-b border-[#282e42] p-3 px-10 animate-in fade-in duration-150">
-                    <ChunkVisualizer chunks={item.chunks} totalBytes={item.totalBytes} />
-                  </div>
-                )}
-              </React.Fragment>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </div>
       </div>
+
+      {/* Lower Dedicated Inspection & Multi-Stream Visualizer Panel */}
+      {inspectedItem && (
+        <div className="h-44 bg-[#0d111c] p-4 flex flex-col justify-between select-none overflow-hidden animate-in fade-in duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                Live 64-Thread Engine Telemetry: <span className="text-cyan-400 font-mono">{inspectedItem.filename}</span>
+              </span>
+              <span className="text-[11px] font-mono text-slate-400">
+                Downloaded: <strong className="text-slate-200">{formatBytes(inspectedItem.downloadedBytes)}</strong> of {formatBytes(inspectedItem.totalBytes)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <span className="text-slate-400">Rate: <strong className="text-emerald-400">{formatSpeed(inspectedItem.speedBps)}</strong></span>
+              <span className="text-slate-400">Status: <strong className="text-cyan-300 uppercase">{inspectedItem.status}</strong></span>
+            </div>
+          </div>
+
+          {/* Active 64-Thread Multi-Segment Block Visualizer */}
+          <div className="py-2">
+            <ChunkVisualizer chunks={inspectedItem.chunks} totalBytes={inspectedItem.totalBytes} />
+          </div>
+
+          {/* Bottom File Destination Info */}
+          <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 pt-1 border-t border-[#1a2133]">
+            <span className="truncate max-w-lg" title={inspectedItem.destinationPath}>
+              Path: {inspectedItem.destinationPath}
+            </span>
+            <span>Direct Zero-Copy Disk Writing: ACTIVE</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
