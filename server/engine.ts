@@ -38,9 +38,7 @@ export class DownloadEngine {
   }
 
   private sanitizeFilename(name: string): string {
-    // Strip illegal Windows filesystem characters: / \ : * ? " < > |
     let sanitized = name.replace(/[\\/:*?"<>|]+/g, '_').trim();
-    // Remove query params or hash remnants if present
     if (sanitized.includes('?')) sanitized = sanitized.split('?')[0];
     if (sanitized.includes('#')) sanitized = sanitized.split('#')[0];
     return sanitized || `download_${Date.now()}.bin`;
@@ -131,6 +129,8 @@ export class DownloadEngine {
 
     try {
       const probe = await this.probeUrl(item.url);
+      if (item.status === 'paused' || item.status === 'cancelled') return;
+
       item.totalBytes = probe.contentLength;
       item.resumable = probe.acceptRanges;
       if (probe.finalUrl) item.url = probe.finalUrl;
@@ -142,13 +142,11 @@ export class DownloadEngine {
         item.category = this.detectCategory(cleanName);
       }
 
-      // Ensure directory exists recursively before opening file
       const dir = path.dirname(item.destinationPath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      // Open file for random access writes
       const fd = fs.openSync(item.destinationPath, 'w+');
       this.fileDescriptors.set(id, fd);
 
@@ -186,6 +184,7 @@ export class DownloadEngine {
 
       let prevTotalDownloaded = 0;
       const speedInterval = setInterval(() => {
+        if (item.status !== 'downloading') return;
         const currentTotal = item.chunks.reduce((acc, c) => acc + c.downloadedBytes, 0);
         const bytesInInterval = currentTotal - prevTotalDownloaded;
         prevTotalDownloaded = currentTotal;
@@ -203,7 +202,6 @@ export class DownloadEngine {
 
       this.speedIntervals.set(id, speedInterval);
 
-      // Launch all parallel stream workers
       const workerPromises = chunks.map(chunk => {
         const controller = new AbortController();
         controllers.push(controller);
@@ -212,17 +210,27 @@ export class DownloadEngine {
 
       await Promise.all(workerPromises);
 
+      // Clean up interval and file descriptors
       clearInterval(speedInterval);
       this.speedIntervals.delete(id);
-      fs.closeSync(fd);
+      try { fs.closeSync(fd); } catch (e) {}
       this.fileDescriptors.delete(id);
 
-      item.status = 'completed';
-      item.speedBps = 0;
-      item.etaSeconds = 0;
-      item.completedAt = new Date().toISOString();
-      this.saveState();
-      this.notify();
+      // CRITICAL CHECK: ONLY set completed if NOT paused and all bytes were downloaded!
+      if (item.status === 'downloading') {
+        const totalDownloaded = item.chunks.reduce((acc, c) => acc + c.downloadedBytes, 0);
+        if (item.totalBytes > 0 && totalDownloaded >= item.totalBytes) {
+          item.status = 'completed';
+          item.downloadedBytes = item.totalBytes;
+        } else {
+          item.status = 'paused';
+        }
+        item.speedBps = 0;
+        item.etaSeconds = 0;
+        item.completedAt = new Date().toISOString();
+        this.saveState();
+        this.notify();
+      }
 
     } catch (err: any) {
       if (item.status === 'paused' || item.status === 'cancelled') return;
@@ -268,7 +276,6 @@ export class DownloadEngine {
         agent,
         signal,
       }, res => {
-        // Follow redirects
         if (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
           item.url = res.headers.location;
           this.downloadChunk(item, chunk, fd, signal).then(resolve).catch(reject);
@@ -304,12 +311,18 @@ export class DownloadEngine {
         });
 
         res.on('end', () => {
-          chunk.status = 'done';
-          chunk.speedBps = 0;
+          if (!signal.aborted) {
+            chunk.status = 'done';
+            chunk.speedBps = 0;
+          }
           resolve();
         });
 
         res.on('error', err => {
+          if (signal.aborted) {
+            resolve();
+            return;
+          }
           chunk.status = 'error';
           reject(err);
         });
@@ -330,13 +343,17 @@ export class DownloadEngine {
 
   public pauseDownload(id: string) {
     const item = this.downloads.get(id);
-    if (!item || item.status !== 'downloading') return;
+    if (!item) return;
 
     item.status = 'paused';
     item.speedBps = 0;
+    item.etaSeconds = 0;
+
     const controllers = this.abortControllers.get(id);
     if (controllers) {
-      controllers.forEach(c => c.abort());
+      controllers.forEach(c => {
+        try { c.abort(); } catch (e) {}
+      });
       this.abortControllers.delete(id);
     }
 
@@ -358,16 +375,14 @@ export class DownloadEngine {
 
   public resumeDownload(id: string) {
     const item = this.downloads.get(id);
-    if (!item) return;
+    if (!item || (item.status !== 'paused' && item.status !== 'error')) return;
 
-    // Clean destination directory if needed
     const dir = path.dirname(item.destinationPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
     if (!fs.existsSync(item.destinationPath)) {
-      // Recreate file
       const fd = fs.openSync(item.destinationPath, 'w+');
       if (item.totalBytes > 0) {
         try { fs.ftruncateSync(fd, item.totalBytes); } catch (e) {}
@@ -387,6 +402,7 @@ export class DownloadEngine {
 
     let prevTotalDownloaded = item.downloadedBytes;
     const speedInterval = setInterval(() => {
+      if (item.status !== 'downloading') return;
       const currentTotal = item.chunks.reduce((acc, c) => acc + c.downloadedBytes, 0);
       const bytesInInterval = currentTotal - prevTotalDownloaded;
       prevTotalDownloaded = currentTotal;
@@ -401,7 +417,7 @@ export class DownloadEngine {
 
     this.speedIntervals.set(id, speedInterval);
 
-    const incompleteChunks = item.chunks.filter(c => c.status !== 'done');
+    const incompleteChunks = item.chunks.filter(c => c.status !== 'done' && (c.totalBytes === 0 || c.downloadedBytes < c.totalBytes));
     const workerPromises = incompleteChunks.map(chunk => {
       const controller = new AbortController();
       controllers.push(controller);
@@ -414,12 +430,20 @@ export class DownloadEngine {
       try { fs.closeSync(fd); } catch (e) {}
       this.fileDescriptors.delete(id);
 
-      item.status = 'completed';
-      item.speedBps = 0;
-      item.etaSeconds = 0;
-      item.completedAt = new Date().toISOString();
-      this.saveState();
-      this.notify();
+      if (item.status === 'downloading') {
+        const totalDownloaded = item.chunks.reduce((acc, c) => acc + c.downloadedBytes, 0);
+        if (item.totalBytes > 0 && totalDownloaded >= item.totalBytes) {
+          item.status = 'completed';
+          item.downloadedBytes = item.totalBytes;
+        } else {
+          item.status = 'paused';
+        }
+        item.speedBps = 0;
+        item.etaSeconds = 0;
+        item.completedAt = new Date().toISOString();
+        this.saveState();
+        this.notify();
+      }
     }).catch(err => {
       if (item.status === 'paused') return;
       item.status = 'error';

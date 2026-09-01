@@ -3,12 +3,12 @@ import { TitleBar } from './components/TitleBar';
 import { Header } from './components/Header';
 import { DownloadRow } from './components/DownloadRow';
 import { NewDownloadModal } from './components/NewDownloadModal';
+import { ActiveDownloadModal } from './components/ActiveDownloadModal';
 import { StandaloneDownloadWindow } from './components/StandaloneDownloadWindow';
 import { DownloadItem, EngineStats, NewDownloadPayload } from './types/download';
 import { DownloadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
-  // Check if this instance is a native secondary OS popup window!
   const searchParams = new URLSearchParams(window.location.search);
   const popupDownloadId = searchParams.get('popup');
 
@@ -20,6 +20,7 @@ export const App: React.FC = () => {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [activeModalId, setActiveModalId] = useState<string | null>(null);
   const [defaultPath, setDefaultPath] = useState('');
   const [stats, setStats] = useState<EngineStats>({
     totalSpeedBps: 0,
@@ -63,7 +64,6 @@ export const App: React.FC = () => {
       })
       .catch(() => {});
 
-    // Drag and drop support
     const handleDrop = (e: DragEvent) => {
       e.preventDefault();
       const text = e.dataTransfer?.getData('text');
@@ -109,6 +109,7 @@ export const App: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     await fetch(`http://localhost:5005/api/downloads/${id}`, { method: 'DELETE' });
+    if (activeModalId === id) setActiveModalId(null);
   };
 
   const handleOpenFile = async (filePath: string) => {
@@ -127,6 +128,16 @@ export const App: React.FC = () => {
     });
   };
 
+  const handleOpenDownloadWindow = (id: string) => {
+    if ((window as any).electronAPI?.openDownloadWindow) {
+      // Real Native OS Window (Electron)
+      (window as any).electronAPI.openDownloadWindow(id);
+    } else {
+      // In-App Progress Window or Browser Popup
+      setActiveModalId(id);
+    }
+  };
+
   const handleStartNew = async (payload: NewDownloadPayload) => {
     const res = await fetch('http://localhost:5005/api/downloads', {
       method: 'POST',
@@ -135,18 +146,11 @@ export const App: React.FC = () => {
     });
     const item = await res.json();
     if (item && item.id) {
-      // Spawn a real, independent native OS window on the desktop!
-      if ((window as any).electronAPI?.openDownloadWindow) {
-        (window as any).electronAPI.openDownloadWindow(item.id);
-      }
+      handleOpenDownloadWindow(item.id);
     }
   };
 
-  const handleOpenNativePopup = (id: string) => {
-    if ((window as any).electronAPI?.openDownloadWindow) {
-      (window as any).electronAPI.openDownloadWindow(id);
-    }
-  };
+  const activeModalItem = downloads.find(d => d.id === activeModalId) || null;
 
   const counts = {
     all: downloads.length,
@@ -209,7 +213,7 @@ export const App: React.FC = () => {
           filteredDownloads.map(item => (
             <div 
               key={item.id} 
-              onDoubleClick={() => handleOpenNativePopup(item.id)}
+              onDoubleClick={() => handleOpenDownloadWindow(item.id)}
               className="cursor-pointer"
             >
               <DownloadRow
@@ -231,6 +235,17 @@ export const App: React.FC = () => {
         onClose={() => setIsAddModalOpen(false)}
         onSubmit={handleStartNew}
         defaultFolder={defaultPath}
+      />
+
+      {/* In-App Progress Window Fallback */}
+      <ActiveDownloadModal
+        item={activeModalItem}
+        onClose={() => setActiveModalId(null)}
+        onPause={(id) => fetch(`http://localhost:5005/api/downloads/${id}/pause`, { method: 'POST' })}
+        onResume={(id) => fetch(`http://localhost:5005/api/downloads/${id}/resume`, { method: 'POST' })}
+        onCancel={handleDelete}
+        onOpenFile={handleOpenFile}
+        onOpenFolder={handleOpenFolder}
       />
     </div>
   );
