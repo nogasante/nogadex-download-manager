@@ -205,18 +205,16 @@ export class DownloadEngine {
       const workerPromises = chunks.map(chunk => {
         const controller = new AbortController();
         controllers.push(controller);
-        return this.downloadChunk(item, chunk, fd, controller.signal);
+        return this.downloadChunkWithRetry(item, chunk, fd, controller.signal);
       });
 
       await Promise.all(workerPromises);
 
-      // Clean up interval and file descriptors
       clearInterval(speedInterval);
       this.speedIntervals.delete(id);
       try { fs.closeSync(fd); } catch (e) {}
       this.fileDescriptors.delete(id);
 
-      // CRITICAL CHECK: ONLY set completed if NOT paused and all bytes were downloaded!
       if (item.status === 'downloading') {
         const totalDownloaded = item.chunks.reduce((acc, c) => acc + c.downloadedBytes, 0);
         if (item.totalBytes > 0 && totalDownloaded >= item.totalBytes) {
@@ -234,14 +232,33 @@ export class DownloadEngine {
 
     } catch (err: any) {
       if (item.status === 'paused' || item.status === 'cancelled') return;
-      console.error(`Download error [${id}]:`, err);
       item.status = 'error';
-      item.error = err.message || 'Download stream error';
+      item.error = this.humanizeError(err.message);
       item.speedBps = 0;
       const interval = this.speedIntervals.get(id);
       if (interval) clearInterval(interval);
       this.saveState();
       this.notify();
+    }
+  }
+
+  // Automatic exponential backoff chunk retry loop (like IDM)
+  private async downloadChunkWithRetry(item: DownloadItem, chunk: ChunkProgress, fd: number, signal: AbortSignal, maxRetries: number = 8): Promise<void> {
+    let attempts = 0;
+    while (attempts < maxRetries) {
+      if (signal.aborted || item.status === 'paused') return;
+      try {
+        await this.downloadChunk(item, chunk, fd, signal);
+        return;
+      } catch (err: any) {
+        if (signal.aborted || item.status === 'paused') return;
+        attempts++;
+        if (attempts >= maxRetries) {
+          throw err;
+        }
+        // Transparent auto-retry backoff
+        await new Promise(r => setTimeout(r, Math.min(1000 * attempts, 5000)));
+      }
     }
   }
 
@@ -275,6 +292,7 @@ export class DownloadEngine {
         headers,
         agent,
         signal,
+        timeout: 15000,
       }, res => {
         if (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
           item.url = res.headers.location;
@@ -284,7 +302,7 @@ export class DownloadEngine {
 
         if (res.statusCode && res.statusCode >= 400) {
           chunk.status = 'error';
-          reject(new Error(`Server returned HTTP ${res.statusCode}`));
+          reject(new Error(`HTTP ${res.statusCode}`));
           return;
         }
 
@@ -323,9 +341,14 @@ export class DownloadEngine {
             resolve();
             return;
           }
-          chunk.status = 'error';
+          chunk.status = 'idle';
           reject(err);
         });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Connection timed out'));
       });
 
       req.on('error', err => {
@@ -333,12 +356,32 @@ export class DownloadEngine {
           resolve();
           return;
         }
-        chunk.status = 'error';
+        chunk.status = 'idle';
         reject(err);
       });
 
       req.end();
     });
+  }
+
+  private humanizeError(raw: string): string {
+    if (!raw) return 'Download interrupted. Click Retry.';
+    if (raw.includes('ECONNRESET') || raw.includes('socket hang up') || raw.includes('EPIPE')) {
+      return 'Network connection dropped by server. Auto-reconnecting...';
+    }
+    if (raw.includes('ETIMEDOUT') || raw.includes('timed out')) {
+      return 'Server response timed out. Click Retry to reconnect.';
+    }
+    if (raw.includes('ENOTFOUND')) {
+      return 'Server address not found. Please check internet connection.';
+    }
+    if (raw.includes('403') || raw.includes('401')) {
+      return 'Access denied or download link expired by server.';
+    }
+    if (raw.includes('404')) {
+      return 'File not found on remote server.';
+    }
+    return 'Download paused due to server interruption. Click Retry.';
   }
 
   public pauseDownload(id: string) {
@@ -421,7 +464,7 @@ export class DownloadEngine {
     const workerPromises = incompleteChunks.map(chunk => {
       const controller = new AbortController();
       controllers.push(controller);
-      return this.downloadChunk(item, chunk, fd, controller.signal);
+      return this.downloadChunkWithRetry(item, chunk, fd, controller.signal);
     });
 
     Promise.all(workerPromises).then(() => {
@@ -447,7 +490,7 @@ export class DownloadEngine {
     }).catch(err => {
       if (item.status === 'paused') return;
       item.status = 'error';
-      item.error = err.message;
+      item.error = this.humanizeError(err.message);
       this.saveState();
       this.notify();
     });
