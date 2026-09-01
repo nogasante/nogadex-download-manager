@@ -4,18 +4,18 @@
 
 @layer base {
   :root {
-    --bg-base: #0a0d14;
-    --bg-surface: #101420;
-    --bg-card: #151b2b;
-    --bg-card-hover: #1c2438;
-    --border-subtle: #1f273d;
-    --border-strong: #2d3855;
-    --accent-cyan: #06b6d4;
-    --accent-blue: #3b82f6;
-    --accent-emerald: #10b981;
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --bg-base: #09090b;
+    --bg-surface: #121215;
+    --bg-panel: #18181c;
+    --bg-card-hover: #222228;
+    --border-subtle: #27272a;
+    --border-strong: #3f3f46;
+    --accent-beige: #d8c8b4;
+    --accent-beige-hover: #e8ded0;
+    --accent-beige-dim: rgba(216, 200, 180, 0.15);
+    --text-primary: #ffffff;
+    --text-secondary: #d4d4d8;
+    --text-muted: #71717a;
   }
 
   body {
@@ -30,37 +30,37 @@
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0d14;
+  background: #09090b;
 }
 ::-webkit-scrollbar-thumb {
-  background: #232c44;
+  background: #27272a;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b476c;
+  background: #d8c8b4;
 }
 
-/* Smooth Table Row Transitions */
+/* Table Row Hover */
 .download-row {
-  transition: all 0.15s ease-in-out;
+  transition: all 0.12s ease-in-out;
 }
 .download-row:hover {
-  background-color: rgba(28, 36, 56, 0.6);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 .download-row.selected {
-  background-color: rgba(59, 130, 246, 0.12);
-  border-left: 3px solid #3b82f6;
+  background-color: rgba(216, 200, 180, 0.08);
+  border-left: 3px solid #d8c8b4;
 }
 
-/* Pulse animation for active chunk blocks */
-@keyframes chunk-glow {
-  0%, 100% { filter: brightness(1); opacity: 0.9; }
-  50% { filter: brightness(1.3); opacity: 1; }
+/* Stream chunk pulse in Warm Beige / Gold */
+@keyframes beige-pulse {
+  0%, 100% { filter: brightness(1); opacity: 0.85; }
+  50% { filter: brightness(1.25); opacity: 1; }
 }
-.chunk-active {
-  animation: chunk-glow 1.2s infinite ease-in-out;
+.chunk-beige-active {
+  animation: beige-pulse 1.2s infinite ease-in-out;
 }

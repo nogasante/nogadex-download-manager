@@ -23,7 +23,6 @@ export const NewDownloadModal: React.FC<NewDownloadModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setError('');
-      // Check clipboard for auto-pasting download links
       if (navigator.clipboard && navigator.clipboard.readText) {
         navigator.clipboard.readText().then(text => {
           if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
@@ -79,22 +78,22 @@ export const NewDownloadModal: React.FC<NewDownloadModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-slate-950 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 glow-cyan">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="w-full max-w-lg bg-[#121215] border border-[#2e2e34] rounded-2xl p-6 shadow-2xl space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center">
-              <DownloadCloud className="w-5 h-5 text-cyan-400" />
+            <div className="w-9 h-9 rounded-xl bg-[#d8c8b4] flex items-center justify-center shadow-md">
+              <Zap className="w-5 h-5 text-black fill-black" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100">Add New Download</h2>
-              <p className="text-xs text-slate-400 font-mono">Multi-threaded Turbo Acceleration</p>
+              <h2 className="text-base font-bold text-white">Add New Download</h2>
+              <p className="text-xs text-[#d8c8b4] font-mono">64-Thread Turbo Stream Acceleration</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-[#1f1f25] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -109,8 +108,8 @@ export const NewDownloadModal: React.FC<NewDownloadModalProps> = ({
         <form onSubmit={handleFormSubmit} className="space-y-4">
           {/* Download URL Input */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <LinkIcon className="w-3.5 h-3.5 text-cyan-400" />
+            <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+              <LinkIcon className="w-3.5 h-3.5 text-[#d8c8b4]" />
               Download URL
             </label>
             <input
@@ -120,13 +119,13 @@ export const NewDownloadModal: React.FC<NewDownloadModalProps> = ({
               placeholder="https://example.com/large_file.zip"
               value={url}
               onChange={(e) => handleUrlChange(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-cyan-500 text-sm font-mono text-slate-100 placeholder-slate-600 outline-none transition-colors"
+              className="w-full px-4 py-2.5 rounded-xl bg-[#0a0a0d] border border-[#27272a] focus:border-[#d8c8b4] text-sm font-mono text-white placeholder-zinc-600 outline-none transition-colors"
             />
           </div>
 
           {/* Custom File Name (Optional) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300">
+            <label className="text-xs font-semibold text-zinc-300">
               Save File As (Optional)
             </label>
             <input
@@ -134,18 +133,18 @@ export const NewDownloadModal: React.FC<NewDownloadModalProps> = ({
               placeholder="Custom filename.ext"
               value={filename}
               onChange={(e) => setFilename(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-cyan-500 text-sm font-mono text-slate-100 placeholder-slate-600 outline-none transition-colors"
+              className="w-full px-4 py-2.5 rounded-xl bg-[#0a0a0d] border border-[#27272a] focus:border-[#d8c8b4] text-sm font-mono text-white placeholder-zinc-600 outline-none transition-colors"
             />
           </div>
 
-          {/* Connection Slider (1 to 64 Threads) */}
-          <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+          {/* Connection Slider */}
+          <div className="p-4 rounded-xl bg-[#0a0a0d] border border-[#27272a] space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-bold text-slate-200">Parallel Threads</span>
+                <Sliders className="w-4 h-4 text-[#d8c8b4]" />
+                <span className="text-xs font-bold text-white">Parallel Streams</span>
               </div>
-              <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full bg-cyan-950 border border-cyan-500/40 text-cyan-400">
+              <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full bg-[#24211c] border border-[#d8c8b4]/40 text-[#d8c8b4]">
                 {connections} Streams
               </span>
             </div>
@@ -157,37 +156,37 @@ export const NewDownloadModal: React.FC<NewDownloadModalProps> = ({
               step="1"
               value={connections}
               onChange={(e) => setConnections(parseInt(e.target.value, 10))}
-              className="w-full accent-cyan-400 cursor-pointer"
+              className="w-full accent-[#d8c8b4] cursor-pointer"
             />
 
-            <div className="flex justify-between text-[10px] font-mono text-slate-500">
+            <div className="flex justify-between text-[10px] font-mono text-zinc-500">
               <span>1x Standard</span>
               <span>16x Fast</span>
               <span>32x Turbo</span>
-              <span className="text-cyan-400 font-bold">64x Max Saturation</span>
+              <span className="text-[#d8c8b4] font-bold">64x Max Saturation</span>
             </div>
           </div>
 
           {/* Save Location Preview */}
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 px-1 truncate">
-            <Folder className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-400 px-1 truncate">
+            <Folder className="w-3.5 h-3.5 text-zinc-500 flex-shrink-0" />
             <span className="truncate">Folder: {defaultFolder}</span>
           </div>
 
-          {/* Submit / Action Buttons */}
+          {/* Action Buttons */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-[#1a1a20] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 transition-all shadow-lg shadow-cyan-500/20 active:scale-95 glow-cyan"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-black bg-[#d8c8b4] hover:bg-[#e8ded0] transition-all shadow-md active:scale-95"
             >
-              <Zap className="w-4 h-4 fill-slate-950" />
+              <Zap className="w-4 h-4 fill-black" />
               Start Turbo Download
             </button>
           </div>

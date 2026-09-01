@@ -41,9 +41,9 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
 
   const statusFilters = [
     { id: 'all', label: 'All Downloads', icon: Layers, count: counts.all },
-    { id: 'active', label: 'Downloading', icon: DownloadCloud, count: counts.active, activeClass: 'text-cyan-400' },
-    { id: 'finished', label: 'Finished', icon: CheckCircle2, count: counts.completed, activeClass: 'text-emerald-400' },
-    { id: 'paused', label: 'Paused', icon: PauseCircle, count: counts.paused, activeClass: 'text-amber-400' },
+    { id: 'active', label: 'Downloading', icon: DownloadCloud, count: counts.active },
+    { id: 'finished', label: 'Finished', icon: CheckCircle2, count: counts.completed },
+    { id: 'paused', label: 'Paused', icon: PauseCircle, count: counts.paused },
   ];
 
   const categoryFilters = [
@@ -55,11 +55,11 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
   ];
 
   return (
-    <aside className="w-60 border-r border-[#1f273d] bg-[#0c101a] p-3.5 select-none flex flex-col justify-between overflow-y-auto">
+    <aside className="w-60 border-r border-[#222226] bg-[#0c0c0e] p-3.5 select-none flex flex-col justify-between overflow-y-auto">
       <div className="space-y-6">
         {/* Status Views */}
         <div className="space-y-1">
-          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 px-2.5 mb-2">
+          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500 px-2.5 mb-2">
             Status
           </div>
           {statusFilters.map(item => {
@@ -69,19 +69,19 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onSelectCategory(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                   isSelected
-                    ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#151b2b]'
+                    ? 'bg-[#d8c8b4] text-black font-bold shadow-sm'
+                    : 'text-zinc-400 hover:text-white hover:bg-[#18181c]'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isSelected ? 'text-cyan-400' : 'text-slate-500'}`} />
+                  <Icon className={`w-4 h-4 ${isSelected ? 'text-black' : 'text-zinc-400'}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.count > 0 && (
                   <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                    isSelected ? 'bg-cyan-500/25 text-cyan-200' : 'bg-[#151b2b] text-slate-500'
+                    isSelected ? 'bg-black/20 text-black' : 'bg-[#1c1c22] text-zinc-400'
                   }`}>
                     {item.count}
                   </span>
@@ -93,7 +93,7 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
 
         {/* Categories */}
         <div className="space-y-1">
-          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 px-2.5 mb-2">
+          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-500 px-2.5 mb-2">
             Categories
           </div>
           {categoryFilters.map(item => {
@@ -105,16 +105,16 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
                 onClick={() => onSelectCategory(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-all ${
                   isSelected
-                    ? 'bg-[#182136] text-cyan-300 font-medium'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#151b2b]'
+                    ? 'bg-[#222228] text-[#d8c8b4] font-medium border border-[#33333d]'
+                    : 'text-zinc-400 hover:text-white hover:bg-[#18181c]'
                 }`}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className="w-3.5 h-3.5 text-slate-500" />
+                  <Icon className="w-3.5 h-3.5 text-zinc-500" />
                   <span>{item.label}</span>
                 </div>
                 {item.count > 0 && (
-                  <span className="text-[10px] font-mono text-slate-500">
+                  <span className="text-[10px] font-mono text-zinc-500">
                     {item.count}
                   </span>
                 )}
@@ -125,18 +125,18 @@ export const FluentSidebar: React.FC<FluentSidebarProps> = ({
       </div>
 
       {/* Storage Disk Path Info */}
-      <div className="p-3 rounded-xl bg-[#111522] border border-[#1e2538] space-y-2 text-[11px] font-mono">
-        <div className="flex items-center justify-between text-slate-400">
-          <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[10px] uppercase">
+      <div className="p-3 rounded-xl bg-[#141417] border border-[#222226] space-y-2 text-[11px] font-mono">
+        <div className="flex items-center justify-between text-zinc-400">
+          <div className="flex items-center gap-1.5 text-[#d8c8b4] font-bold text-[10px] uppercase">
             <Cpu className="w-3.5 h-3.5" />
             <span>Engine</span>
           </div>
-          <span className="text-[9px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/20">
-            Direct I/O
+          <span className="text-[9px] text-[#d8c8b4] bg-[#24211c] px-1.5 py-0.5 rounded border border-[#d8c8b4]/30 font-bold">
+            Zero-Copy
           </span>
         </div>
-        <div className="text-[10px] text-slate-400 truncate" title={defaultPath}>
-          <span className="text-slate-500 block text-[9px] uppercase">Destination:</span>
+        <div className="text-[10px] text-zinc-400 truncate" title={defaultPath}>
+          <span className="text-zinc-500 block text-[9px] uppercase">Save Location:</span>
           {defaultPath || 'Downloads/HyperDownloader'}
         </div>
       </div>
