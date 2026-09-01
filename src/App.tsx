@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FluentToolbar } from './components/FluentToolbar';
 import { FluentSidebar } from './components/FluentSidebar';
 import { FluentDataTable } from './components/FluentDataTable';
+import { StatusBar } from './components/StatusBar';
 import { NewDownloadModal } from './components/NewDownloadModal';
 import { DownloadItem, EngineStats, NewDownloadPayload } from './types/download';
 
@@ -20,7 +21,7 @@ export const App: React.FC = () => {
     speedHistory: new Array(30).fill(0),
   });
 
-  // WebSocket Live Synchronization
+  // WebSocket Live Real-Time Stream
   useEffect(() => {
     let ws: WebSocket;
     let reconnectTimer: NodeJS.Timeout;
@@ -55,7 +56,6 @@ export const App: React.FC = () => {
       })
       .catch(() => {});
 
-    // Ctrl+N shortcut
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -150,8 +150,8 @@ export const App: React.FC = () => {
   });
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-[#11141e] text-slate-100 font-sans overflow-hidden">
-      {/* Top Header & Purpose-Built Engine Toolbar */}
+    <div className="w-screen h-screen flex flex-col bg-[#0b0e17] text-slate-100 font-sans overflow-hidden">
+      {/* Top Functional Toolbar */}
       <FluentToolbar
         onAddUrl={() => setIsAddModalOpen(true)}
         onResumeAll={handleResumeAll}
@@ -163,7 +163,7 @@ export const App: React.FC = () => {
         stats={stats}
       />
 
-      {/* Full-Bleed Main Workspace */}
+      {/* Main Workspace (Sidebar + Responsive Split Table & Telemetry) */}
       <div className="flex flex-1 overflow-hidden">
         <FluentSidebar
           selectedCategory={selectedCategory}
@@ -184,7 +184,14 @@ export const App: React.FC = () => {
         />
       </div>
 
-      {/* New Download Modal */}
+      {/* Bottom Global Status Bar */}
+      <StatusBar
+        stats={stats}
+        downloads={downloads}
+        defaultPath={defaultPath}
+      />
+
+      {/* Add New Download Modal */}
       <NewDownloadModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

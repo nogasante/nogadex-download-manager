@@ -4,10 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { URL } from 'url';
-import { DownloadItem, ChunkProgress, DownloadStatus } from '../src/types/download';
+import { DownloadItem, ChunkProgress } from '../src/types/download';
 
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 128 });
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 128 });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 256 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 256 });
 
 export class DownloadEngine {
   public downloads: Map<string, DownloadItem> = new Map();
@@ -110,7 +110,6 @@ export class DownloadEngine {
     this.saveState();
     this.notify();
 
-    // Start probe & download
     this.startDownload(id);
     return item;
   }
@@ -126,23 +125,21 @@ export class DownloadEngine {
       const probe = await this.probeUrl(item.url);
       item.totalBytes = probe.contentLength;
       item.resumable = probe.acceptRanges;
-      if (probe.filename && !item.filename) {
+      if (probe.finalUrl) item.url = probe.finalUrl;
+      if (probe.filename) {
         item.filename = probe.filename;
         item.destinationPath = path.join(path.dirname(item.destinationPath), probe.filename);
         item.category = this.detectCategory(probe.filename);
       }
 
-      // Initialize destination file
+      // Open file for random access writes
       const fd = fs.openSync(item.destinationPath, 'w+');
       this.fileDescriptors.set(id, fd);
 
       if (item.totalBytes > 0) {
-        // Preallocate disk file footprint for zero-copy random writes
         try {
           fs.ftruncateSync(fd, item.totalBytes);
-        } catch (e) {
-          console.warn('ftruncate not fully supported, continuing...');
-        }
+        } catch (e) {}
       }
 
       const connectionCount = item.resumable && item.totalBytes > 0 ? item.connections : 1;
@@ -168,7 +165,6 @@ export class DownloadEngine {
       this.saveState();
       this.notify();
 
-      // Launch parallel stream workers
       const controllers: AbortController[] = [];
       this.abortControllers.set(id, controllers);
 
@@ -178,7 +174,7 @@ export class DownloadEngine {
         const bytesInInterval = currentTotal - prevTotalDownloaded;
         prevTotalDownloaded = currentTotal;
         item.downloadedBytes = currentTotal;
-        item.speedBps = Math.max(0, bytesInInterval); // measured per second
+        item.speedBps = Math.max(0, bytesInInterval);
 
         if (item.speedBps > 0 && item.totalBytes > currentTotal) {
           item.etaSeconds = Math.round((item.totalBytes - currentTotal) / item.speedBps);
@@ -191,7 +187,7 @@ export class DownloadEngine {
 
       this.speedIntervals.set(id, speedInterval);
 
-      // Spawn all chunk workers in parallel
+      // Launch all parallel stream workers
       const workerPromises = chunks.map(chunk => {
         const controller = new AbortController();
         controllers.push(controller);
@@ -200,7 +196,6 @@ export class DownloadEngine {
 
       await Promise.all(workerPromises);
 
-      // Download complete
       clearInterval(speedInterval);
       this.speedIntervals.delete(id);
       fs.closeSync(fd);
@@ -242,7 +237,7 @@ export class DownloadEngine {
       }
 
       const headers: Record<string, string> = {
-        'User-Agent': 'HyperDownloader/1.0 (Windows NT 10.0; Win64; x64) HighSpeed/64T',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 HyperDownloader/64T',
         'Accept': '*/*',
         'Connection': 'keep-alive',
       };
@@ -257,6 +252,13 @@ export class DownloadEngine {
         agent,
         signal,
       }, res => {
+        // Follow redirects
+        if (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          item.url = res.headers.location;
+          this.downloadChunk(item, chunk, fd, signal).then(resolve).catch(reject);
+          return;
+        }
+
         if (res.statusCode && res.statusCode >= 400) {
           chunk.status = 'error';
           reject(new Error(`Server returned HTTP ${res.statusCode}`));
@@ -345,7 +347,6 @@ export class DownloadEngine {
     item.status = 'downloading';
     this.notify();
 
-    // Open file in append/random access mode
     const fd = fs.openSync(item.destinationPath, 'r+');
     this.fileDescriptors.set(id, fd);
 
@@ -368,7 +369,6 @@ export class DownloadEngine {
 
     this.speedIntervals.set(id, speedInterval);
 
-    // Resume incomplete chunks
     const incompleteChunks = item.chunks.filter(c => c.status !== 'done');
     const workerPromises = incompleteChunks.map(chunk => {
       const controller = new AbortController();
@@ -408,7 +408,7 @@ export class DownloadEngine {
     this.notify();
   }
 
-  private probeUrl(url: string): Promise<{ contentLength: number; acceptRanges: boolean; filename?: string }> {
+  private probeUrl(url: string, maxRedirects: number = 5): Promise<{ contentLength: number; acceptRanges: boolean; filename?: string; finalUrl?: string }> {
     return new Promise((resolve) => {
       try {
         const parsedUrl = new URL(url);
@@ -418,10 +418,16 @@ export class DownloadEngine {
         const req = lib.request(parsedUrl, {
           method: 'HEAD',
           headers: {
-            'User-Agent': 'HyperDownloader/1.0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) HyperDownloader/64T',
           },
-          timeout: 7000,
+          timeout: 8000,
         }, res => {
+          if (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location && maxRedirects > 0) {
+            const redirectUrl = new URL(res.headers.location, url).toString();
+            this.probeUrl(redirectUrl, maxRedirects - 1).then(resolve);
+            return;
+          }
+
           const contentLength = parseInt(res.headers['content-length'] || '0', 10);
           const acceptRanges = (res.headers['accept-ranges'] || '').toLowerCase() === 'bytes' || !!res.headers['content-range'];
           
@@ -432,22 +438,21 @@ export class DownloadEngine {
             if (match && match[1]) filename = match[1].trim();
           }
 
-          resolve({ contentLength, acceptRanges, filename });
+          resolve({ contentLength, acceptRanges, filename, finalUrl: url });
         });
 
         req.on('error', () => {
-          // Fallback probe using GET 0-0
-          resolve({ contentLength: 0, acceptRanges: false });
+          resolve({ contentLength: 0, acceptRanges: false, finalUrl: url });
         });
 
         req.on('timeout', () => {
           req.destroy();
-          resolve({ contentLength: 0, acceptRanges: false });
+          resolve({ contentLength: 0, acceptRanges: false, finalUrl: url });
         });
 
         req.end();
       } catch (e) {
-        resolve({ contentLength: 0, acceptRanges: false });
+        resolve({ contentLength: 0, acceptRanges: false, finalUrl: url });
       }
     });
   }
