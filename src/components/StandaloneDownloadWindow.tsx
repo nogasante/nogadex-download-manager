@@ -1,97 +1,103 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DownloadItem } from '../types/download';
-import { 
-  X, 
-  Minus, 
-  Pause, 
-  Play, 
-  FolderOpen, 
-  ExternalLink, 
-  HardDrive,
-  FileArchive,
-  Video,
-  Music,
-  FileCode,
-  FileText,
-  File
-} from 'lucide-react';
 import { ChunkVisualizer } from './ChunkVisualizer';
+import { Play, Pause, X, ExternalLink, FolderOpen, AlertCircle } from 'lucide-react';
 
 interface StandaloneDownloadWindowProps {
   downloadId: string;
 }
 
 export const StandaloneDownloadWindow: React.FC<StandaloneDownloadWindowProps> = ({ downloadId }) => {
-  const [item, setItem] = useState<DownloadItem | null>(null);
-  const [closeOnComplete, setCloseOnComplete] = useState(true);
+  const [download, setDownload] = useState<DownloadItem | null>(null);
+  const [isNotFound, setIsNotFound] = useState(false);
 
   useEffect(() => {
-    let ws: WebSocket;
-    let reconnectTimer: NodeJS.Timeout;
+    fetch(`/api/downloads/${downloadId}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Download not found');
+        return res.json();
+      })
+      .then(data => setDownload(data))
+      .catch(() => setIsNotFound(true));
 
-    const connect = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.hostname === 'localhost' ? 'localhost:5005' : window.location.host;
-      ws = new WebSocket(`${protocol}//${host}/ws`);
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'STATE_UPDATE' && data.downloads) {
-            const found = data.downloads.find((d: DownloadItem) => d.id === downloadId);
-            if (found) {
-              setItem(found);
-              if (found.status === 'completed' && closeOnComplete) {
-                setTimeout(() => {
-                  (window as any).electronAPI?.close();
-                }, 1500);
-              }
-            }
-          }
-        } catch (e) {}
-      };
-
-      ws.onclose = () => {
-        reconnectTimer = setTimeout(connect, 2000);
-      };
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'DOWNLOAD_UPDATE' && msg.data?.id === downloadId) {
+          setDownload(msg.data);
+        } else if (msg.type === 'STATE_UPDATE' && Array.isArray(msg.data?.downloads)) {
+          const found = msg.data.downloads.find((d: DownloadItem) => d.id === downloadId);
+          if (found) setDownload(found);
+        }
+      } catch {}
     };
 
-    connect();
-
-    fetch('http://localhost:5005/api/downloads')
-      .then(res => res.json())
-      .then(data => {
-        if (data.downloads) {
-          const found = data.downloads.find((d: DownloadItem) => d.id === downloadId);
-          if (found) setItem(found);
-        }
-      })
-      .catch(() => {});
+    const timer = setTimeout(() => {
+      setDownload(prev => {
+        if (!prev) setIsNotFound(true);
+        return prev;
+      });
+    }, 4000);
 
     return () => {
-      if (ws) ws.close();
-      clearTimeout(reconnectTimer);
+      ws.close();
+      clearTimeout(timer);
     };
-  }, [downloadId, closeOnComplete]);
+  }, [downloadId]);
 
-  if (!item) {
-    return (
-      <div className="w-screen h-screen bg-[#121215] flex items-center justify-center text-xs font-mono text-zinc-400">
-        Connecting to stream telemetry...
-      </div>
-    );
-  }
+  const handlePause = async () => {
+    try {
+      await fetch(`/api/downloads/${downloadId}/pause`, { method: 'POST' });
+    } catch {}
+  };
+
+  const handleResume = async () => {
+    try {
+      await fetch(`/api/downloads/${downloadId}/resume`, { method: 'POST' });
+    } catch {}
+  };
+
+  const handleOpenFile = async () => {
+    if (download) {
+      try {
+        await fetch('/api/open-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath: download.destinationPath }),
+        });
+      } catch {}
+    }
+  };
+
+  const handleOpenFolder = async () => {
+    if (download) {
+      try {
+        await fetch('/api/open-folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath: download.destinationPath }),
+        });
+      } catch {}
+    }
+  };
+
+  const handleClose = () => {
+    window.close();
+  };
 
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 B';
-    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${bytes} B`;
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(i > 1 ? 2 : 0)} ${sizes[i]}`;
   };
 
   const formatSpeed = (bps: number) => {
-    if (!bps || bps === 0) return '0 B/s';
+    if (!bps || bps === 0) return '—';
     if (bps >= 1024 * 1024 * 1024) return `${(bps / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
     if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(2)} MB/s`;
     if (bps >= 1024) return `${(bps / 1024).toFixed(1)} KB/s`;
@@ -99,224 +105,160 @@ export const StandaloneDownloadWindow: React.FC<StandaloneDownloadWindowProps> =
   };
 
   const formatEta = (seconds: number) => {
-    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '--';
-    if (seconds < 60) return `${seconds} sec`;
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    if (mins < 60) return `${mins} min ${secs} sec`;
-    const hrs = Math.floor(mins / 60);
-    return `${hrs} hr ${mins % 60} min`;
+    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '—';
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
   };
 
-  const percent = item.totalBytes > 0 
-    ? Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100))
-    : (item.status === 'completed' ? 100 : 0);
+  if (isNotFound) {
+    return (
+      <div className="h-screen w-screen bg-[#f3f3f2] flex flex-col items-center justify-center p-6 text-center select-none text-xs text-[#202020]">
+        <AlertCircle className="w-8 h-8 text-[#a80000] mb-2" />
+        <h2 className="font-semibold text-sm">Download Unavailable</h2>
+        <p className="text-[#606060] mt-1 max-w-xs">
+          This download has completed or is no longer present in HyperDownloader.
+        </p>
+        <button
+          onClick={handleClose}
+          className="mt-4 px-4 py-1.5 bg-[#ffffff] hover:bg-[#e8e8e6] active:bg-[#dedede] border border-[#adadad] rounded text-xs font-medium"
+        >
+          Close
+        </button>
+      </div>
+    );
+  }
 
-  const getFileIcon = (category: string, filename: string) => {
-    const ext = filename.split('.').pop()?.toLowerCase();
-    if (['zip', 'rar', '7z', 'iso'].includes(ext || '')) return <FileArchive className="w-5 h-5 text-[#d8c8b4]" />;
-    if (['mp4', 'mkv', 'avi', 'mov'].includes(ext || '')) return <Video className="w-5 h-5 text-zinc-300" />;
-    if (['mp3', 'wav', 'flac'].includes(ext || '')) return <Music className="w-5 h-5 text-zinc-300" />;
-    if (['exe', 'msi'].includes(ext || '')) return <FileCode className="w-5 h-5 text-[#d8c8b4]" />;
-    if (['pdf', 'docx', 'txt', 'ppt'].includes(ext || '')) return <FileText className="w-5 h-5 text-zinc-300" />;
-    return <File className="w-5 h-5 text-zinc-400" />;
-  };
+  if (!download) {
+    return (
+      <div className="h-screen w-screen bg-[#f3f3f2] flex flex-col items-center justify-center p-6 text-center select-none text-xs text-[#606060]">
+        <div className="w-5 h-5 border-2 border-[#adadad] border-t-[#202020] rounded-full animate-spin mb-2" />
+        <p>Connecting to download engine...</p>
+      </div>
+    );
+  }
 
-  const handlePause = () => fetch(`http://localhost:5005/api/downloads/${item.id}/pause`, { method: 'POST' });
-  const handleResume = () => fetch(`http://localhost:5005/api/downloads/${item.id}/resume`, { method: 'POST' });
-  const handleCancel = () => {
-    fetch(`http://localhost:5005/api/downloads/${item.id}`, { method: 'DELETE' });
-    (window as any).electronAPI?.close();
-  };
-  const handleOpenFolder = () => {
-    fetch('http://localhost:5005/api/open-folder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filePath: item.destinationPath }),
-    });
-  };
-  const handleOpenFile = () => {
-    fetch('http://localhost:5005/api/open-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filePath: item.destinationPath }),
-    });
-  };
+  const percentage = download.totalBytes > 0 
+    ? Math.min(100, Math.round((download.downloadedBytes / download.totalBytes) * 100)) 
+    : 0;
+
+  const isCompleted = download.status === 'completed';
+  const isDownloading = download.status === 'downloading';
+  const isPaused = download.status === 'paused';
 
   return (
-    <div className="w-screen h-screen bg-[#121215] text-white flex flex-col justify-between select-none font-mono overflow-hidden">
-      {/* Native Draggable OS Window Titlebar */}
-      <div 
-        className="h-8 px-3 bg-[#18181c] border-b border-[#27272a] flex items-center justify-between"
-        style={{ WebkitAppRegion: 'drag' } as any}
-      >
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#d8c8b4] animate-pulse"></span>
-          <span className="text-[11px] font-semibold text-white truncate max-w-sm">
-            {percent}% — {item.filename}
-          </span>
-        </div>
-
-        <div className="flex items-center h-full -mr-3" style={{ WebkitAppRegion: 'no-drag' } as any}>
-          <button
-            onClick={() => (window as any).electronAPI?.minimize()}
-            className="h-full px-3 hover:bg-[#27272a] text-zinc-400 hover:text-white transition-colors flex items-center justify-center"
-          >
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => (window as any).electronAPI?.close()}
-            className="h-full px-3 hover:bg-rose-600 text-zinc-400 hover:text-white transition-colors flex items-center justify-center"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+    <div className="h-screen w-screen bg-[#ffffff] flex flex-col select-none overflow-hidden text-xs text-[#1e1e1e]">
+      {/* Mini Titlebar */}
+      <div className="h-8 bg-[#f3f3f2] border-b border-[#e5e5e3] px-3 flex items-center justify-between app-drag-region shrink-0">
+        <span className="font-semibold truncate max-w-xs">{download.filename}</span>
+        <button
+          onClick={handleClose}
+          aria-label="Close"
+          className="app-no-drag p-1 text-[#606060] hover:text-[#1e1e1e] hover:bg-[#e5e5e3] rounded"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      {/* Main Body */}
-      <div className="p-4 space-y-3.5 flex-1 overflow-y-auto text-xs">
-        {/* Header File Info */}
-        <div className="flex items-start gap-3 p-3 rounded-xl bg-[#0a0a0c] border border-[#222226]">
-          <div className="w-10 h-10 rounded-lg bg-[#18181c] border border-[#2a2a30] flex items-center justify-center flex-shrink-0">
-            {getFileIcon(item.category, item.filename)}
+      {/* Main Content */}
+      <div className="flex-1 p-4 overflow-y-auto space-y-3.5">
+        {/* Info Grid */}
+        <div className="p-3 bg-[#f9f9f8] border border-[#e5e5e3] rounded space-y-1.5 font-mono text-[11px]">
+          <div className="truncate">
+            <span className="text-[#707070]">File: </span>
+            <span className="font-semibold text-[#1e1e1e]">{download.filename}</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-xs font-bold text-white truncate" title={item.filename}>
-              {item.filename}
-            </h3>
-            <div className="text-[10px] text-zinc-500 truncate mt-0.5" title={item.url}>
-              {item.url}
-            </div>
+          <div className="truncate">
+            <span className="text-[#707070]">URL: </span>
+            <span className="text-[#0067b8]" title={download.url}>{download.url}</span>
           </div>
-        </div>
-
-        {/* 2-Column Metrics */}
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="p-2.5 rounded-lg bg-[#18181c] border border-[#24242a] flex justify-between items-center">
-            <span className="text-zinc-500">Status:</span>
-            <strong className={`uppercase ${
-              item.status === 'completed' ? 'text-emerald-400' :
-              item.status === 'downloading' ? 'text-[#d8c8b4]' :
-              item.status === 'error' ? 'text-rose-400' : 'text-zinc-400'
-            }`}>
-              {item.status}
-            </strong>
+          <div className="truncate">
+            <span className="text-[#707070]">Save to: </span>
+            <span title={download.destinationPath}>{download.destinationPath}</span>
           </div>
-
-          <div className="p-2.5 rounded-lg bg-[#18181c] border border-[#24242a] flex justify-between items-center">
-            <span className="text-zinc-500">Transfer Rate:</span>
-            <strong className="text-white">{item.status === 'downloading' ? formatSpeed(item.speedBps) : '0 B/s'}</strong>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-[#18181c] border border-[#24242a] flex justify-between items-center">
-            <span className="text-zinc-500">Downloaded:</span>
-            <strong className="text-white">{formatBytes(item.downloadedBytes)}</strong>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-[#18181c] border border-[#24242a] flex justify-between items-center">
-            <span className="text-zinc-500">Total Size:</span>
-            <strong className="text-[#d8c8b4]">{item.totalBytes > 0 ? formatBytes(item.totalBytes) : 'Unknown'}</strong>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-[#18181c] border border-[#24242a] flex justify-between items-center">
-            <span className="text-zinc-500">Time Left (ETA):</span>
-            <strong className="text-white">{item.status === 'downloading' ? formatEta(item.etaSeconds) : '--'}</strong>
-          </div>
-
-          <div className="p-2.5 rounded-lg bg-[#18181c] border border-[#24242a] flex justify-between items-center">
-            <span className="text-zinc-500">Streams:</span>
-            <strong className="text-[#d8c8b4]">{item.chunks?.length || item.connections} Threads</strong>
+          <div className="grid grid-cols-2 pt-1 border-t border-[#e5e5e3]">
+            <div>Status: <span className="font-semibold uppercase">{download.status}</span></div>
+            <div>Streams: <span>{download.connections || 1} active</span></div>
           </div>
         </div>
 
-        {/* Overall Progress Bar */}
-        <div className="space-y-1.5 pt-1">
-          <div className="flex justify-between text-[11px]">
-            <span className="text-zinc-400">Overall Progress</span>
-            <span className="font-bold text-white">{percent}%</span>
+        {/* Progress Section */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between font-mono text-[11px]">
+            <span>{formatBytes(download.downloadedBytes)} of {formatBytes(download.totalBytes)} ({percentage}%)</span>
+            <span className="font-semibold">{formatSpeed(download.speedBps)}</span>
           </div>
-          <div className="h-2.5 w-full bg-[#0a0a0c] rounded-full overflow-hidden border border-[#27272a] p-0.5">
+
+          <div className="h-3 w-full bg-[#e5e5e3] rounded-sm overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${
-                item.status === 'completed'
-                  ? 'bg-emerald-400'
-                  : item.status === 'downloading'
-                  ? 'bg-[#d8c8b4]'
-                  : item.status === 'error'
-                  ? 'bg-rose-500'
-                  : 'bg-zinc-700'
+              className={`h-full transition-all duration-150 ${
+                isCompleted ? 'bg-[#107c41]' : isPaused ? 'bg-[#8a6600]' : 'bg-[#c4b5a3]'
               }`}
-              style={{ width: `${percent}%` }}
+              style={{ width: `${percentage}%` }}
             />
           </div>
+
+          <div className="flex items-center justify-between font-mono text-[11px] text-[#707070]">
+            <span>Time Left: {formatEta(download.etaSeconds)}</span>
+            <span>Resume: {download.resumable ? 'Supported' : 'No'}</span>
+          </div>
         </div>
 
-        {/* 64-Thread Stream Matrix */}
-        <div className="pt-1">
-          <ChunkVisualizer chunks={item.chunks} totalBytes={item.totalBytes} />
-        </div>
-
-        {/* Destination Path */}
-        <div className="flex items-center gap-2 text-[10px] text-zinc-500 truncate pt-1 border-t border-[#222226]">
-          <HardDrive className="w-3 h-3 text-zinc-400 flex-shrink-0" />
-          <span className="truncate">{item.destinationPath}</span>
+        {/* Streams Visualizer */}
+        <div className="p-2.5 bg-[#f9f9f8] border border-[#e5e5e3] rounded">
+          <ChunkVisualizer chunks={download.chunks || []} totalBytes={download.totalBytes} />
         </div>
       </div>
 
-      {/* Footer Controls */}
-      <div className="p-3.5 bg-[#16161a] border-t border-[#27272a] flex items-center justify-between">
-        <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={closeOnComplete}
-            onChange={(e) => setCloseOnComplete(e.target.checked)}
-            className="rounded border-[#3f3f46] bg-[#0a0a0d] text-[#d8c8b4] focus:ring-0"
-          />
-          <span>Close on complete</span>
-        </label>
+      {/* Windows Dialog Buttons */}
+      <div className="h-11 bg-[#f3f3f2] border-t border-[#e5e5e3] px-3 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-1.5">
+          {isCompleted && (
+            <>
+              <button
+                onClick={handleOpenFile}
+                className="px-3 py-1 bg-[#ffffff] hover:bg-[#e8e8e6] active:bg-[#dedede] border border-[#adadad] rounded text-xs flex items-center gap-1 font-medium"
+              >
+                <ExternalLink className="w-3 h-3 text-[#0067b8]" />
+                <span>Open File</span>
+              </button>
+              <button
+                onClick={handleOpenFolder}
+                className="px-3 py-1 bg-[#ffffff] hover:bg-[#e8e8e6] active:bg-[#dedede] border border-[#adadad] rounded text-xs flex items-center gap-1"
+              >
+                <FolderOpen className="w-3 h-3 text-[#d8a436]" />
+                <span>Open Folder</span>
+              </button>
+            </>
+          )}
 
-        <div className="flex items-center gap-2">
-          {item.status === 'downloading' ? (
+          {isDownloading && (
             <button
               onClick={handlePause}
-              className="px-3.5 py-1.5 rounded-lg bg-[#27272a] hover:bg-[#34343a] text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1 bg-[#ffffff] hover:bg-[#e8e8e6] active:bg-[#dedede] border border-[#adadad] rounded text-xs flex items-center gap-1 font-medium"
             >
-              <Pause className="w-3.5 h-3.5" />
+              <Pause className="w-3 h-3 text-[#8a6600]" />
               <span>Pause</span>
-            </button>
-          ) : item.status === 'paused' || item.status === 'error' ? (
-            <button
-              onClick={handleResume}
-              className="px-3.5 py-1.5 rounded-lg bg-[#d8c8b4] hover:bg-[#e8ded0] text-black text-xs font-bold flex items-center gap-1.5 transition-colors"
-            >
-              <Play className="w-3.5 h-3.5 fill-black" />
-              <span>Resume</span>
-            </button>
-          ) : (
-            <button
-              onClick={handleOpenFile}
-              className="px-3.5 py-1.5 rounded-lg bg-[#1a281e] hover:bg-[#233829] border border-emerald-500/30 text-emerald-400 text-xs font-bold flex items-center gap-1.5 transition-colors"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Open</span>
             </button>
           )}
 
-          <button
-            onClick={handleOpenFolder}
-            className="px-3.5 py-1.5 rounded-lg bg-[#27272a] hover:bg-[#34343a] text-zinc-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors"
-          >
-            <FolderOpen className="w-3.5 h-3.5" />
-            <span>Folder</span>
-          </button>
-
-          <button
-            onClick={handleCancel}
-            className="px-3.5 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-300 text-xs font-medium transition-colors"
-          >
-            Cancel
-          </button>
+          {isPaused && (
+            <button
+              onClick={handleResume}
+              className="px-3 py-1 bg-[#e6d8c7] hover:bg-[#dccebc] active:bg-[#cdbfae] text-[#3a2d1d] border border-[#c4b5a3] rounded text-xs flex items-center gap-1 font-semibold"
+            >
+              <Play className="w-3 h-3 text-[#107c41] fill-current" />
+              <span>Resume</span>
+            </button>
+          )}
         </div>
+
+        <button
+          onClick={handleClose}
+          className="px-4 py-1 bg-[#ffffff] hover:bg-[#e8e8e6] active:bg-[#dedede] border border-[#adadad] rounded text-xs font-medium"
+        >
+          Close
+        </button>
       </div>
     </div>
   );

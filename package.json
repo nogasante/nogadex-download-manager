@@ -12,7 +12,22 @@
     "start": "tsx server/server.ts",
     "electron": "electron .",
     "desktop": "concurrently \"cross-env BROWSER=none vite\" \"wait-on tcp:5173 && electron .\"",
-    "dist": "vite build && electron-builder --win"
+    "dist": "vite build && electron-builder --win",
+    "test": "tsx server/test_runner.ts",
+    "test:all": "tsx server/test_runner.ts",
+    "test:correctness": "tsx server/test_correctness.ts",
+    "test:integrity": "tsx server/test_integrity.ts",
+    "test:scheduler": "tsx server/test_scheduler.ts",
+    "test:network": "tsx server/test_network.ts",
+    "test:optimization": "tsx server/test_optimization.ts",
+    "test:adversarial": "tsx server/test_adversarial.ts",
+    "test:real": "tsx server/test_real_server.ts",
+    "test:security": "tsx server/test_security.ts",
+    "test:soak": "tsx server/test_soak.ts",
+    "benchmark": "tsx server/benchmark_engine.ts",
+    "test:hardening": "tsx server/test_product_hardening.ts",
+    "test:gate": "tsx server/test_release_gate.ts",
+    "test:internet": "tsx server/test_real_internet.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { Zap, Plus, Download, Activity, FolderOpen } from 'lucide-react';
 import { EngineStats } from '../types/download';

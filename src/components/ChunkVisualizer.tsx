@@ -1,63 +1,61 @@
 import React from 'react';
-import { ChunkProgress } from '../types/download';
+import { DownloadChunk } from '../types/download';
 
 interface ChunkVisualizerProps {
-  chunks: ChunkProgress[];
-  totalBytes: number;
+  chunks: DownloadChunk[];
+  totalBytes?: number;
 }
 
-export const ChunkVisualizer: React.FC<ChunkVisualizerProps> = ({ chunks, totalBytes }) => {
+export const ChunkVisualizer: React.FC<ChunkVisualizerProps> = ({ chunks }) => {
   if (!chunks || chunks.length === 0) {
     return (
-      <div className="h-4 w-full bg-[#0d0d10] rounded border border-[#222226] flex items-center justify-center text-[10px] text-zinc-500 font-mono">
-        Single Stream Connection
+      <div className="p-4 text-center text-[13px] text-[#888880] font-sans">
+        Single-stream direct download (no range chunks)
       </div>
     );
   }
 
-  const finishedCount = chunks.filter(c => c.status === 'done' || (c.totalBytes > 0 && c.downloadedBytes >= c.totalBytes)).length;
+  const completedCount = chunks.filter(c => c.status === 'completed').length;
+  const activeCount = chunks.filter(c => c.status === 'downloading').length;
 
   return (
-    <div className="space-y-1.5 select-none">
-      <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
-        <span className="flex items-center gap-1.5 text-white">
-          <span className="w-2 h-2 rounded-full bg-[#d8c8b4] animate-pulse"></span>
-          Parallel 64-Thread Stream Matrix ({chunks.length} Connections)
-        </span>
-        <span className="text-[#d8c8b4] font-semibold">
-          {finishedCount}/{chunks.length} Streams Completed
+    <div className="space-y-3 select-none text-[13px]">
+      <div className="flex justify-between items-center text-[12.5px] text-[#555550]">
+        <span>Parallel Range Matrix ({chunks.length} streams)</span>
+        <span className="font-mono">
+          <b className="text-[#026aa7]">{activeCount}</b> active • {completedCount}/{chunks.length} completed
         </span>
       </div>
 
-      {/* Multi-Segment Warm Beige Visualizer Bar */}
-      <div className="h-5 w-full bg-[#0d0d10] rounded-lg overflow-hidden border border-[#27272a] p-0.5 flex gap-0.5">
+      <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5 p-2 bg-[#f6f6f4] border border-[#e4e4e0] rounded">
         {chunks.map((chunk) => {
-          const percent = chunk.totalBytes > 0 
-            ? Math.min(100, Math.round((chunk.downloadedBytes / chunk.totalBytes) * 100))
-            : 0;
-
-          const isDone = chunk.status === 'done' || percent >= 100;
-          const isActive = chunk.status === 'active' && !isDone;
+          const chunkLen = Math.max(1, chunk.end - chunk.start + 1);
+          const pct = Math.min(100, Math.round((chunk.downloaded / chunkLen) * 100));
+          const isDone = chunk.status === 'completed' || pct >= 100;
+          const isActive = chunk.status === 'downloading';
 
           return (
             <div
               key={chunk.id}
-              className="relative h-full flex-1 bg-[#18181c] rounded-[2px] overflow-hidden group cursor-pointer"
-              title={`Thread #${chunk.id + 1}: ${percent}% (${(chunk.downloadedBytes / (1024 * 1024)).toFixed(2)} MB / ${(chunk.totalBytes / (1024 * 1024)).toFixed(2)} MB)`}
+              className={`h-7 rounded-sm border px-1 flex flex-col justify-center text-[11px] font-mono transition-colors ${
+                isDone
+                  ? 'bg-[#e2f0d9] border-[#b2d8a0] text-[#276a16]'
+                  : isActive
+                    ? 'bg-[#deecf9] border-[#9bc4e8] text-[#005a9e] animate-pulse'
+                    : 'bg-[#ffffff] border-[#e0e0dc] text-[#70706a]'
+              }`}
+              title={`Chunk ${chunk.id + 1}: ${pct}% (${chunk.downloaded} / ${chunkLen} bytes)`}
             >
-              {/* Progress Fill in Warm Champagne & Beige */}
-              <div
-                className={`h-full transition-all duration-200 ${
-                  isDone
-                    ? 'bg-[#d8c8b4]'
-                    : isActive
-                    ? 'bg-gradient-to-t from-[#c4b5a0] to-[#f0e8dc] chunk-beige-active shadow-[0_0_8px_rgba(216,200,180,0.6)]'
-                    : 'bg-[#27272a]'
-                }`}
-                style={{ width: `${percent}%` }}
-              />
-
-              <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors" />
+              <div className="flex justify-between items-center leading-none">
+                <span>#{chunk.id + 1}</span>
+                <span className="font-bold">{pct}%</span>
+              </div>
+              <div className="w-full bg-black/10 h-1 rounded-sm mt-0.5 overflow-hidden">
+                <div
+                  className={`h-full ${isDone ? 'bg-[#276a16]' : isActive ? 'bg-[#005a9e]' : 'bg-transparent'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             </div>
           );
         })}

@@ -1,0 +1,10 @@
+{
+  "defaultDownloadFolder": "C:\\Users\\nanas\\Downloads\\HyperDownloader",
+  "tempDownloadFolder": "C:\\Users\\nanas\\Downloads\\HyperDownloader\\.temp",
+  "maxConcurrentDownloads": 3,
+  "defaultConnections": 32,
+  "autoStartDownloads": true,
+  "overwriteExisting": false,
+  "doubleClickAction": "open_file",
+  "speedLimitBps": 0
+}

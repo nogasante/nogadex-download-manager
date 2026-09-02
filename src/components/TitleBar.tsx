@@ -1,51 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { Minus, Square, X, Zap } from 'lucide-react';
+import React from 'react';
+import { Minus, Square, X } from 'lucide-react';
 
 export const TitleBar: React.FC = () => {
-  const [isElectron, setIsElectron] = useState(false);
-
-  useEffect(() => {
-    if ((window as any).electronAPI) {
-      setIsElectron(true);
-    }
-  }, []);
-
   const handleMinimize = () => {
-    (window as any).electronAPI?.minimize();
+    if ((window as any).electronAPI?.minimize) (window as any).electronAPI.minimize();
   };
 
   const handleMaximize = () => {
-    (window as any).electronAPI?.maximize();
+    if ((window as any).electronAPI?.maximize) (window as any).electronAPI.maximize();
   };
 
   const handleClose = () => {
-    (window as any).electronAPI?.close();
+    if ((window as any).electronAPI?.close) (window as any).electronAPI.close();
   };
 
   return (
     <div 
-      className="h-8 bg-[#09090b] border-b border-[#1c1c20] flex items-center justify-between px-3 select-none z-50 text-xs text-zinc-400 font-mono"
       style={{ WebkitAppRegion: 'drag' } as any}
+      className="h-8 bg-[#ffffff] border-b border-[#e2e8f0] flex items-center justify-between px-3 select-none text-[13px] font-sans shrink-0 z-50 shadow-sm"
     >
-      {/* App Branding */}
+      {/* Brand & Logo */}
       <div className="flex items-center gap-2">
-        <div className="w-4 h-4 rounded bg-[#d8c8b4] flex items-center justify-center">
-          <span className="text-[10px] text-black font-black leading-none">↓</span>
-        </div>
-        <span className="text-white text-[11px] font-semibold tracking-wide">
-          HyperDownloader
+        <img
+          src="/logo.png"
+          alt="Nogadex Logo"
+          className="w-5 h-5 rounded-[4px] object-contain drop-shadow-sm pointer-events-none"
+        />
+        <span className="font-semibold text-[#1e293b] tracking-tight">
+          Nogadex Download Manager
         </span>
-        <span className="text-[10px] text-zinc-500">v1.0.0</span>
       </div>
 
-      {/* Window Controls for Native Desktop App */}
+      {/* Windows System Control Buttons */}
       <div 
-        className="flex items-center h-full -mr-3"
         style={{ WebkitAppRegion: 'no-drag' } as any}
+        className="flex items-center h-full -mr-3"
       >
         <button
           onClick={handleMinimize}
-          className="h-full px-3 hover:bg-[#1f1f24] text-zinc-400 hover:text-white transition-colors flex items-center justify-center"
+          className="w-11 h-full flex items-center justify-center hover:bg-[#f1f5f9] text-[#475569] transition-colors"
           title="Minimize"
         >
           <Minus className="w-3.5 h-3.5" />
@@ -53,15 +46,15 @@ export const TitleBar: React.FC = () => {
 
         <button
           onClick={handleMaximize}
-          className="h-full px-3 hover:bg-[#1f1f24] text-zinc-400 hover:text-white transition-colors flex items-center justify-center"
+          className="w-11 h-full flex items-center justify-center hover:bg-[#f1f5f9] text-[#475569] transition-colors"
           title="Maximize"
         >
-          <Square className="w-3 h-3" />
+          <Square className="w-3 h-3 stroke-[1.5]" />
         </button>
 
         <button
           onClick={handleClose}
-          className="h-full px-3 hover:bg-rose-600 text-zinc-400 hover:text-white transition-colors flex items-center justify-center"
+          className="w-11 h-full flex items-center justify-center hover:bg-[#e11d48] hover:text-white text-[#475569] transition-colors"
           title="Close"
         >
           <X className="w-3.5 h-3.5" />

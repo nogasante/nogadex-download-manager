@@ -1,39 +1,30 @@
-export type DownloadStatus = 
-  | 'queued' 
-  | 'probing' 
-  | 'downloading' 
-  | 'paused' 
-  | 'completed' 
-  | 'error' 
-  | 'cancelled';
-
-export interface ChunkProgress {
+export interface DownloadChunk {
   id: number;
-  startByte: number;
-  endByte: number;
-  downloadedBytes: number;
-  totalBytes: number;
-  speedBps: number;
-  status: 'idle' | 'active' | 'done' | 'error';
+  start: number;
+  end: number;
+  downloaded: number;
+  status: 'idle' | 'downloading' | 'completed' | 'error';
+  speedBps?: number;
+  workerId?: string;
 }
+
+export type ChunkProgress = DownloadChunk;
 
 export interface DownloadItem {
   id: string;
   url: string;
   filename: string;
   destinationPath: string;
+  status: 'queued' | 'probing' | 'downloading' | 'paused' | 'completed' | 'error';
   totalBytes: number;
   downloadedBytes: number;
-  status: DownloadStatus;
   speedBps: number;
-  connections: number;
-  chunks: ChunkProgress[];
-  category: 'all' | 'video' | 'audio' | 'compressed' | 'program' | 'document' | 'other';
-  resumable: boolean;
   etaSeconds: number;
-  createdAt: string;
-  completedAt?: string;
-  error?: string;
+  connections: number;
+  chunks: DownloadChunk[];
+  error?: string | null;
+  resumable: boolean;
+  createdAt: number;
 }
 
 export interface EngineStats {
@@ -41,7 +32,7 @@ export interface EngineStats {
   activeDownloadsCount: number;
   completedCount: number;
   queuedCount: number;
-  speedHistory: number[]; // Last 30 data points in KB/s
+  speedHistory: number[];
 }
 
 export interface NewDownloadPayload {
@@ -49,4 +40,20 @@ export interface NewDownloadPayload {
   filename?: string;
   destinationFolder?: string;
   connections?: number;
+  startImmediate?: boolean;
+}
+
+export interface AppSettings {
+  defaultDownloadFolder: string;
+  defaultFolder?: string;
+  tempDownloadFolder: string;
+  tempDir?: string;
+  autoCategorize?: boolean;
+  rememberLastFolder?: boolean;
+  maxConcurrentDownloads: number;
+  defaultConnections: number;
+  autoStartDownloads: boolean;
+  overwriteExisting: boolean;
+  doubleClickAction: 'open_file' | 'open_folder' | 'properties';
+  speedLimitBps: number;
 }
