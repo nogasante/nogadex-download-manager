@@ -976,9 +976,10 @@ export class DownloadEngine {
       // Small files benefit more from eliminating scheduler/write-queue
       // overhead than from dynamic work stealing. Fall back to the mature
       // path if any fast-path range request fails.
+      let fastPathPartial: ChunkProgress[] = [];
       if (item.autoStreams && !fileExists && item.downloadedBytes === 0 && item.resumable && item.totalBytes > 256 * 1024 && item.totalBytes <= 32 * 1024 * 1024) {
-        const fastCompleted = await this.trySmallFileFastPath(item, requestUrl, fd);
-        if (fastCompleted) {
+        const fast = await this.trySmallFileFastPath(item, requestUrl, fd);
+        if (fast.ok) {
           this.writeQueues.delete(id);
           try { fs.closeSync(fd); } catch (e) {}
           this.fileDescriptors.delete(id);
@@ -992,6 +993,7 @@ export class DownloadEngine {
           this.checkNextQueuedDownload();
           return;
         }
+        fastPathPartial = fast.partial;
         try { fs.ftruncateSync(fd, item.totalBytes); } catch (e) {}
       }
 
@@ -1047,6 +1049,12 @@ export class DownloadEngine {
       // Initialize Dynamic Work-Stealing Scheduler
       const scheduler = new DynamicRangeScheduler(item.totalBytes, initialConns);
       this.schedulers.set(id, scheduler);
+      if (fastPathPartial.some(c => c.downloadedBytes > 0)) {
+        // Ranges the failed fast path already wrote to disk: resume from
+        // them (done chunks short-circuit in downloadChunk) instead of
+        // re-fetching the whole file.
+        scheduler.restoreChunks(fastPathPartial);
+      }
       item.chunks = scheduler.chunks;
 
       item.status = 'downloading';
@@ -1253,12 +1261,19 @@ export class DownloadEngine {
     }
   }
 
-  private async trySmallFileFastPath(item: DownloadItem, requestUrl: string, fd: number): Promise<boolean> {
-    if (typeof fetch !== 'function' || item.totalBytes <= 256 * 1024 || item.totalBytes > 32 * 1024 * 1024) return false;
+  private async trySmallFileFastPath(item: DownloadItem, requestUrl: string, fd: number): Promise<{ ok: boolean; partial: ChunkProgress[] }> {
+    if (typeof fetch !== 'function' || item.totalBytes <= 256 * 1024 || item.totalBytes > 32 * 1024 * 1024) return { ok: false, partial: [] };
 
     const totalBytes = item.totalBytes;
     const requestedRanges = item.autoStreams ? 32 : Math.max(1, Math.min(item.connections, 32));
-    const rangeCount = Math.min(requestedRanges, Math.max(1, Math.ceil(totalBytes / (32 * 1024))));
+    // RTT-aware minimum split: on high-latency hosts, 32 KB ranges spend more
+    // time in request round-trips than transferring data. 1 MB ranges keep the
+    // transfer bandwidth-bound there; low-RTT origins keep 32 KB so small
+    // files still parallelize fully (and OPT-09's 32-chunk contract holds).
+    const minRangeBytes = this.hostIntelligence.getAverageLatencyMs(requestUrl) >= 40
+      ? 1024 * 1024
+      : 32 * 1024;
+    const rangeCount = Math.min(requestedRanges, Math.max(1, Math.ceil(totalBytes / minRangeBytes)));
     const rangeSize = Math.ceil(totalBytes / rangeCount);
     const headers: Record<string, string> = {
       'accept': '*/*',
@@ -1274,17 +1289,52 @@ export class DownloadEngine {
     if (credentials?.userAgent) headers['user-agent'] = credentials.userAgent;
     if (credentials?.referrer) headers.referer = credentials.referrer;
 
+    // Indices of ranges fully written to disk — handed to the mature path on
+    // failure so its scheduler can resume from them instead of re-fetching.
+    const completedRanges = new Set<number>();
+
     try {
+      // node http/https on a dedicated keep-alive agent, NOT global fetch:
+      // undici's global dispatcher holds uv_async handles that trip a libuv
+      // exit assertion (uv_async.c:76 on Windows) when 32 concurrent fetches
+      // are alive at process.exit(). destroy() below closes every pooled
+      // socket deterministically once the fast path finishes.
+      const parsedUrl = new URL(requestUrl);
+      const isHttps = parsedUrl.protocol === 'https:';
+      const fastAgent: http.Agent = isHttps
+        ? new https.Agent({ keepAlive: true })
+        : new http.Agent({ keepAlive: true });
+      const fastRangeGet = (startByte: number, endByte: number) =>
+        new Promise<Buffer>((resolve, reject) => {
+          const req = (isHttps ? https : http).request(parsedUrl, {
+            method: 'GET',
+            headers: { ...headers, range: `bytes=${startByte}-${endByte}` },
+            agent: fastAgent,
+            lookup: createSSRFSafeLookup(this.allowLocalhost),
+            timeout: 8000,
+          }, res => {
+            if (res.statusCode !== 206) {
+              res.resume();
+              reject(new Error(`Fast range request returned ${res.statusCode}`));
+              return;
+            }
+            const parts: Buffer[] = [];
+            res.on('data', (part: Buffer) => parts.push(part));
+            res.on('end', () => resolve(Buffer.concat(parts)));
+            res.on('error', reject);
+          });
+          req.on('timeout', () => req.destroy(new Error('Fast range request timed out')));
+          req.on('error', reject);
+          req.end();
+        });
+      // Burst: open every range connection immediately. A 150 ms ramp used to
+      // mean small transfers finished mid-ramp, never reaching full parallelism
+      // (aria2/IDM open their whole pool up front).
       let nextIndex = 0;
       let activeWorkers = 0;
-      let targetWorkers = Math.min(4, rangeCount);
       let failure: unknown = null;
       let resolveAll: () => void = () => {};
       const allDone = new Promise<void>(resolve => { resolveAll = resolve; });
-      const rampTimer = setInterval(() => {
-        if (!failure && nextIndex < rangeCount) targetWorkers = Math.min(rangeCount, targetWorkers + 4);
-        if (!failure && activeWorkers < targetWorkers) spawnWorker();
-      }, 150);
       const spawnWorker = () => {
         activeWorkers++;
         void (async () => {
@@ -1294,16 +1344,13 @@ export class DownloadEngine {
               if (index >= rangeCount) break;
               const startByte = index * rangeSize;
               const endByte = Math.min(totalBytes - 1, startByte + rangeSize - 1);
-              const response = await fetch(requestUrl, {
-                method: 'GET',
-                headers: { ...headers, range: `bytes=${startByte}-${endByte}` },
-              });
-              const buffer = Buffer.from(await response.arrayBuffer());
+              const buffer = await fastRangeGet(startByte, endByte);
               const expectedLength = endByte - startByte + 1;
-              if (response.status !== 206 || buffer.length !== expectedLength) {
-                throw new Error(`Fast range request returned ${response.status} with ${buffer.length}/${expectedLength} bytes`);
+              if (buffer.length !== expectedLength) {
+                throw new Error(`Fast range request returned ${buffer.length}/${expectedLength} bytes`);
               }
               fs.writeSync(fd, buffer, 0, buffer.length, startByte);
+              completedRanges.add(index);
             }
           } catch (error) {
             failure = error;
@@ -1313,9 +1360,9 @@ export class DownloadEngine {
           }
         })();
       };
-      for (let i = 0; i < targetWorkers; i++) spawnWorker();
+      for (let i = 0; i < rangeCount; i++) spawnWorker();
       await allDone;
-      clearInterval(rampTimer);
+      fastAgent.destroy();
       if (failure) throw failure;
       item.chunks = Array.from({ length: rangeCount }, (_, index) => {
         const startByte = index * rangeSize;
@@ -1331,9 +1378,27 @@ export class DownloadEngine {
           status: 'done' as const,
         };
       });
-      return true;
+      return { ok: true, partial: [] };
     } catch {
-      return false;
+      // Whole ranges that already landed on disk stay valid (each was one
+      // atomic positional write) — surface them so the mature path resumes
+      // from real progress instead of restarting from zero.
+      const partial: ChunkProgress[] = Array.from({ length: rangeCount }, (_, index) => {
+        const startByte = index * rangeSize;
+        const endByte = Math.min(totalBytes - 1, startByte + rangeSize - 1);
+        const chunkBytes = endByte - startByte + 1;
+        const done = completedRanges.has(index);
+        return {
+          id: index,
+          startByte,
+          endByte,
+          downloadedBytes: done ? chunkBytes : 0,
+          totalBytes: chunkBytes,
+          speedBps: 0,
+          status: done ? ('done' as const) : ('idle' as const),
+        };
+      });
+      return { ok: false, partial };
     }
   }
 
@@ -2561,6 +2626,7 @@ export class DownloadEngine {
           if (credentials.referrer) probeHeaders['Referer'] = credentials.referrer;
         }
 
+        const probeStart = Date.now();
         const req = lib.request(parsedUrl, {
           method: 'HEAD',
           headers: probeHeaders,
@@ -2581,6 +2647,11 @@ export class DownloadEngine {
             return this.probeWithGetRange(url, maxRedirects, new Set(), false, credentials).then(resolve);
           }
 
+          // Feed the probe's own round trip into host intelligence: the
+          // small-file fast path consults getAverageLatencyMs to pick its
+          // minimum range size, and the probe is the only request that has
+          // always completed before that decision.
+          this.hostIntelligence.recordRequestResult(url, res.statusCode, Date.now() - probeStart, 0, false, false);
           const contentLength = parseInt(res.headers['content-length'] || '0', 10);
           const hasAcceptRangesHeader = (res.headers['accept-ranges'] || '').toLowerCase() === 'bytes';
 
@@ -2676,6 +2747,7 @@ export class DownloadEngine {
           if (credentials.referrer) getRangeHeaders['Referer'] = credentials.referrer;
         }
 
+        const probeStart = Date.now();
         const req = lib.request(parsedUrl, {
           method: 'GET',
           headers: getRangeHeaders,
@@ -2698,6 +2770,10 @@ export class DownloadEngine {
           if (disposition && disposition.includes('filename=')) {
             const match = disposition.match(/filename=["']?([^"';]+)["']?/);
             if (match && match[1]) filename = match[1].trim();
+          }
+
+          if (res.statusCode && res.statusCode < 400) {
+            this.hostIntelligence.recordRequestResult(url, res.statusCode, Date.now() - probeStart, 0, false, false);
           }
 
           if (res.statusCode === 206 && res.headers['content-range']) {
