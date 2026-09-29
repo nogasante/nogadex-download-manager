@@ -105,7 +105,9 @@ const splitNotes = body => String(body)
   .filter(Boolean)
   .map(l => l.replace(/^[-*+]\s+/, '').replace(/^#+\s*/, ''))
   .map(l => l.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/`/g, ''))
-  .filter(l => !l.startsWith('<!--'));
+  .map(l => l.replace(/\*\*([^*]+)\*\*/g, '$1')) /* strip bold markers */
+  .filter(l => !l.startsWith('<!--'))
+  .filter((l, i, arr) => arr.indexOf(l) === i); /* release bodies repeat lines */
 
 /* fetch real releases from GitHub; null when offline / none published */
 const fetchReleases = async () => {
@@ -280,6 +282,14 @@ const detectOS = () => {
   apply(stored === 'light' || stored === 'dark' ? stored
     : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
+  /* The nav (with the Light/Dark buttons) is injected by partials.js after
+     an async fetch, i.e. after this runs. Re-sync the button state once it
+     mounts so the active theme is visibly selected. */
+  document.addEventListener('ndm:partials-rendered', () => {
+    const current = root.getAttribute('data-color-scheme') || 'light';
+    apply(current);
+  });
+
   document.addEventListener('click', e => {
     const btn = e.target.closest('.theme-opt');
     if (!btn) return;
@@ -295,26 +305,41 @@ const detectOS = () => {
    tap, Escape, outside click, and when the viewport grows past it.
    ===================================================================== */
 (() => {
-  const burger = document.querySelector('.nav-burger');
-  const panel = document.getElementById('mobile-nav');
-  if (!burger || !panel) return;
+  /* The nav is injected by partials.js after an async fetch, so the burger
+     and theme buttons may not exist when this runs. Bind with event
+     delegation on document so late-rendered controls work. */
+  const resolve = () => ({
+    burger: document.querySelector('.nav-burger'),
+    panel: document.getElementById('mobile-nav'),
+  });
 
-  const setOpen = open => {
+  const setOpen = (burger, panel, open) => {
     burger.setAttribute('aria-expanded', String(open));
     panel.classList.toggle('open', open);
     panel.hidden = !open;
   };
 
-  burger.addEventListener('click', () => setOpen(burger.getAttribute('aria-expanded') !== 'true'));
-  panel.addEventListener('click', e => { if (e.target.closest('a')) setOpen(false); });
   document.addEventListener('click', e => {
-    if (!panel.classList.contains('open')) return;
-    if (!e.target.closest('.appbar')) setOpen(false);
+    const burger = e.target.closest('.nav-burger');
+    if (burger) {
+      const panel = document.getElementById(burger.getAttribute('aria-controls') || 'mobile-nav');
+      if (panel) setOpen(burger, panel, burger.getAttribute('aria-expanded') !== 'true');
+      return;
+    }
+    const { panel } = resolve();
+    if (!panel || !panel.classList.contains('open')) return;
+    if (e.target.closest('a')) { setOpen(e.target.closest('.nav-burger') || document.querySelector('.nav-burger'), panel, false); return; }
+    if (!e.target.closest('.appbar')) setOpen(document.querySelector('.nav-burger'), panel, false);
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && panel.classList.contains('open')) { setOpen(false); burger.focus(); }
+    const { burger, panel } = resolve();
+    if (e.key === 'Escape' && panel && panel.classList.contains('open') && burger) { setOpen(burger, panel, false); burger.focus(); }
   });
-  matchMedia('(min-width: 961px)').addEventListener('change', m => { if (m.matches) setOpen(false); });
+  matchMedia('(min-width: 961px)').addEventListener('change', m => {
+    if (!m.matches) return;
+    const { burger, panel } = resolve();
+    if (burger && panel && panel.classList.contains('open')) setOpen(burger, panel, false);
+  });
 })();
 
 /* =====================================================================

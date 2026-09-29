@@ -215,6 +215,9 @@ let repoUrl = BAKED_REPO_URL;
 const renderPartials = () => {
   mount('site-nav', NAV(repoUrl));
   mount('site-footer', FOOTER(repoUrl));
+  /* site.js initializes theme/before the nav exists (async fetch above);
+     announce the mount so it can sync the Light/Dark button state. */
+  document.dispatchEvent(new CustomEvent('ndm:partials-rendered'));
 };
 
 (async () => {
