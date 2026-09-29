@@ -2,7 +2,7 @@
   "name": "nogadex-download-manager",
   "productName": "NDM - Nogadex Download Manager",
   "description": "Fast, reliable multi-stream download manager for Windows — parallel segmented downloads, instant resume, scheduler, and built-in integrity verification.",
-  "author": "Nogadex Systems",
+  "author": "Nogadex Systems <nanasante2000@gmail.com>",
   "private": true,
   "version": "1.0.5",
   "type": "module",
