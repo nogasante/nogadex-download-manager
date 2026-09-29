@@ -48,7 +48,7 @@ Placeholders like `[data-ver]` / `[data-size]` / `[data-asset]` are overwritten 
 | Download for Windows | primary button (`data-dl`) | main CTA — href filled from releases |
 | View downloads | ghost button | → download page |
 | Explore features | ghost button | → features page |
-| v1.0.4 · 110.6 MB · Windows · macOS and Linux coming soon · What's new | `dl-facts` line (`[data-ver]`, `[data-size]` auto-filled) | release facts; "What's new" links to changelog |
+| v1.0.5 · 110.6 MB · Windows · macOS and Linux coming soon · What's new | `dl-facts` line (`[data-ver]`, `[data-size]` auto-filled) | release facts; "What's new" links to changelog |
 | NDM main window | hero screenshot `alt` | accessibility |
 | Why use NDM? | section `<h2>` | benefits intro |
 | **Multiple connections.** Large downloads can use multiple connections at the same time to make better use of available bandwidth. | why-grid item | benefit 1 |
@@ -76,7 +76,7 @@ Placeholders like `[data-ver]` / `[data-size]` / `[data-asset]` are overwritten 
 | Previous versions → | `dl-more` link | → changelog page |
 | Verify your download | column heading | verification column |
 | CERTUTIL | `cmd-label` | names the shell the command is for |
-| `certutil -hashfile Nogadex_Setup_1.0.4.exe SHA256` | command line (`[data-asset]` auto-filled) | copy-paste verify command |
+| `certutil -hashfile NDM_Setup_1.0.5.exe SHA256` | command line (`[data-asset]` auto-filled) | copy-paste verify command |
 | Copy command / Copied | copy button aria-label (+ 1.2 s state) | clipboard affordance feedback |
 | macOS builds are coming soon. | macOS pane | platform not yet available |
 | Linux builds are coming soon. | Linux pane | platform not yet available |
@@ -151,7 +151,7 @@ Page heading: **FAQ**. Nine accordion Q&A pairs:
 | My internet dropped mid-download. Do I start over? | No. NDM saves progress as it downloads. When the connection is back, it continues from where it stopped, even after a full restart. Completed parts are not downloaded again. |
 | Windows showed a warning when I opened the installer. | The installer is not code-signed yet, so Windows shows this warning for new apps. Choose More info, then Run anyway. A CHECKSUMS.sha256 file is published with every release so you can verify the file you downloaded. |
 | Where do my downloads go? | Your Downloads folder by default. You can change it in Options, or pick a different folder per download. |
-| Does NDM collect anything about me? | No account, no analytics, no ads. NDM connects to the servers you download from. It also contacts GitHub for update checks; you can turn automatic checks off in Options, Updates. |
+| Does NDM collect anything about me? | No account, no analytics, no ads. NDM connects to the servers you download from, and installed builds check GitHub for updates when the app starts. That check is on by default; you can turn it off in Options, Updates. |
 | Is there a Mac or Linux version? | They are planned. The build configuration targets macOS (.dmg) and Linux (AppImage, .deb), but published builds are not available yet. Check the Download page for status. |
 | How do updates work? | In the app: Help, Check for Updates. NDM checks GitHub for new versions, downloads an update only after you approve it, and installs it on the next restart. |
 | Found a bug. What's the fastest way to get it fixed? | Use Help, Report a Bug in the app. It opens a GitHub issue draft and includes your app version and platform. It does not include your download history. |
@@ -198,9 +198,9 @@ Mail composition (in `site.js`): subject `[NDM {topic}] {subject}`, body `Topic:
 | Release history and changes in each version. | `dl-sub` | page intent |
 | Loading releases | placeholder row | pre-render state |
 | Latest / Pre-release | version tags | release classification |
-| `v1.0.4` + date | rendered per release | version + date |
+| `v1.0.5` + date | rendered per release | version + date |
 
-**Seed release notes (v1.0.4 — replaced by real GitHub releases when they exist):**
+**Seed release notes (v1.0.5 — replaced by real GitHub releases when they exist):**
 1. Initial public release.
 2. Support for multi-connection downloads with up to 32 connections.
 3. Resume interrupted downloads without re-downloading completed parts.
@@ -218,4 +218,4 @@ Mail composition (in `site.js`): subject `[NDM {topic}] {subject}`, body `Topic:
 |---|---|---|
 | `REPO` / `REPO_API` | github.com/nogasante/nogadex-download-manager | all repo links, release fetch |
 | `CONTACT_EMAIL` | nanasante2000@gmail.com | every `[data-mail-*]` slot |
-| `RELEASES_SEED` | v1.0.4, 2026-09-26, Nogadex_Setup_1.0.4.exe, 115994266 bytes | `[data-dl]`, `[data-ver]`, `[data-size]`, `[data-asset]`, changelog |
+| `RELEASES_SEED` | v1.0.5, 2026-09-26, NDM_Setup_1.0.5.exe, 115994266 bytes | `[data-dl]`, `[data-ver]`, `[data-size]`, `[data-asset]`, changelog |

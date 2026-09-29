@@ -41,7 +41,7 @@
                   <span>EXE Installer</span>
                   <svg class="row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </a>
-                <a class="bin-row" href="https://github.com/nogasante/nogadex-download-manager/releases/latest/download/CHECKSUMS.sha256">
+                <a class="bin-row" id="checksums-link" href="https://github.com/nogasante/nogadex-download-manager/releases/latest/download/CHECKSUMS.sha256">
                   <span>SHA-256 Checksums</span>
                   <svg class="row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </a>
@@ -58,7 +58,7 @@
                     <svg class="row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                   </button>
                 </div>
-                <code class="cmd-line" id="cmd-sha">certutil -hashfile <span data-asset>Nogadex_Setup_1.0.4.exe</span> SHA256</code>
+                <code class="cmd-line" id="cmd-sha">certutil -hashfile <span data-asset>NDM_Setup_1.0.5.exe</span> SHA256</code>
               </div>
             </div>
           </div>
@@ -78,6 +78,13 @@
           </div>
         </div>
       </div>
+
+      <p class="dl-sub" style="font-size:var(--step-0);margin-top:36px;margin-bottom:0">
+        Code signing policy: Windows installers released here are signed for free by
+        <a id="signpath-link" href="https://signpath.io" target="_blank" rel="noopener">SignPath.io</a>, certificate by the
+        <a id="signpath-foundation-link" href="https://signpath.org" target="_blank" rel="noopener">SignPath Foundation</a>, see the
+        <a id="signing-policy-link" href="https://github.com/nogasante/nogadex-download-manager/blob/master/CODE_SIGNING_POLICY.md" target="_blank" rel="noopener">Code signing policy</a>.
+      </p>
     </div>
   </section>
 </main>

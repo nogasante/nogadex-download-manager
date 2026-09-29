@@ -1,19 +1,73 @@
 /* NDM site shared JS — vanilla, no dependencies. */
 'use strict';
 
-const REPO = 'https://github.com/nogasante/nogadex-download-manager';
-const REPO_API = 'https://api.github.com/repos/nogasante/nogadex-download-manager';
-const LATEST_DL = `${REPO}/releases/latest/download`;
+/* Repo coordinates come from app-config.json (single source of truth shared
+   with the desktop app) so a repo move is a one-file edit. */
+let REPO = 'https://github.com/nogasante/nogadex-download-manager';
+let REPO_API = 'https://api.github.com/repos/nogasante/nogadex-download-manager';
+let LATEST_DL = `${REPO}/releases/latest/download`;
 
-/* single source of truth for the contact email — pages reference it via [data-mail-*] */
-const CONTACT_EMAIL = 'nanasante2000@gmail.com';
+(() => {
+  const apply = (c) => {
+    if (!c || !c.github || !c.github.repoUrl) return;
+    REPO = c.github.repoUrl;
+    REPO_API = `https://api.github.com/repos/${c.github.owner}/${c.github.repo}`;
+    LATEST_DL = `${REPO}/releases/latest/download`;
+  };
+  fetch('app-config.json', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then(apply)
+    .catch(() => {});
+})();
+
+/* Contact email now lives in app-config.json; the block below overrides it
+   once fetched. The baked value keeps pages correct before fetch resolves. */
+let CONTACT_EMAIL = 'nanasante2000@gmail.com';
+let CONTACT_SUBJECT = '[NDM]';
+(() => {
+  fetch('app-config.json', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((c) => {
+      if (!c || !c.contact || !c.contact.email) return;
+      CONTACT_EMAIL = c.contact.email;
+      CONTACT_SUBJECT = c.contact.subjectPrefix || '[NDM]';
+      document.querySelectorAll('[data-mail-text]').forEach((el) => { el.textContent = CONTACT_EMAIL; });
+      document.querySelectorAll('[data-mail-link]').forEach((a) => {
+        a.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`${CONTACT_SUBJECT} Hello`)}`;
+      });
+    })
+    .catch(() => {});
+})();
 
 /* fill every [data-mail-text] / [data-mail-link] from the constant above */
 (() => {
   document.querySelectorAll('[data-mail-text]').forEach(el => { el.textContent = CONTACT_EMAIL; });
   document.querySelectorAll('[data-mail-link]').forEach(a => {
-    a.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('[NDM] Hello')}`;
+    a.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`${CONTACT_SUBJECT} Hello`)}`;
   });
+})();
+
+/* Link particulars (checksums, code-signing) from app-config.json */
+(() => {
+  fetch('app-config.json', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((c) => {
+      if (!c || !c.github) return;
+      const set = (id, href) => {
+        const el = document.getElementById(id);
+        if (el && href) el.href = href;
+      };
+      set('checksums-link', `${c.github.repoUrl}/releases/latest/download/CHECKSUMS.sha256`);
+      set('signing-policy-link', `${c.github.repoUrl}/blob/${c.github.branch || 'master'}/CODE_SIGNING_POLICY.md`);
+      set('contact-issues-link', c.github.issuesUrl);
+      set('contact-discussions-link', `${c.github.repoUrl}/discussions`);
+      set('privacy-repo-link', c.github.repoUrl);
+      if (c.links) {
+        set('signpath-link', c.links.signPath);
+        set('signpath-foundation-link', c.links.signPathFoundation);
+      }
+    })
+    .catch(() => {});
 })();
 /* =====================================================================
    Release data — one source of truth for version, size, date, asset
@@ -23,9 +77,9 @@ const CONTACT_EMAIL = 'nanasante2000@gmail.com';
    ===================================================================== */
 const RELEASES_SEED = [
   {
-    version: '1.0.4',
+    version: '1.0.5',
     date: '2026-09-26',
-    asset: 'Nogadex_Setup_1.0.4.exe',
+    asset: 'NDM_Setup_1.0.5.exe',
     sizeBytes: 115994266,
     prerelease: false,
     notes: [

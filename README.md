@@ -33,7 +33,7 @@ Download `NDM_Setup_<version>.exe` from the [Releases page](https://github.com/n
 
 Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org). The full policy — team roles, what gets signed, and build integrity rules — lives in [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
 
-Privacy policy: This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+Privacy: NDM is a local application with no telemetry, ads, or accounts. As a download manager it connects to the servers you download from, and packaged builds contact GitHub Releases for version checks (automatic by default; disable it in Options → Updates with "Check automatically for new versions"). Full details: [Privacy](site/privacy.html).
 
 ### Windows SmartScreen note
 
@@ -109,7 +109,7 @@ npm run benchmark
 - **Production SSRF Protection**: In production (`allowLocalhost: false`), all outgoing connections are validated both at the URL parse stage and at the raw socket DNS resolution layer.
 - **Forward Proxy Note**: In enterprise environments where traffic routes through an upstream caching forward proxy, ensure the proxy enforces equivalent subnet access policies.
 - **Packaging Note**: Production desktop distributions package pre-compiled web bundles (`dist/index.html`) loaded directly over secure local `file://` protocols.
-- **Code Signing**: Installers are currently unsigned — Windows SmartScreen and macOS Gatekeeper may warn on first run.
+- **Code Signing**: Windows installers from the tagged release pipeline are signed for free via SignPath.io (certificate by SignPath Foundation — see [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md)). Development and self-built artifacts are unsigned, and Windows SmartScreen may still show a reputation notice for early releases.
 
 ---
 

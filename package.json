@@ -1,10 +1,10 @@
 {
   "name": "nogadex-download-manager",
-  "productName": "NDM — Nogadex Download Manager",
+  "productName": "NDM - Nogadex Download Manager",
   "description": "Fast, reliable multi-stream download manager for Windows — parallel segmented downloads, instant resume, scheduler, and built-in integrity verification.",
   "author": "Nogadex Systems",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "scripts": {
     "dev:ui": "vite",
@@ -76,7 +76,7 @@
   "main": "electron/main.cjs",
   "build": {
     "appId": "com.nogadex.ndm",
-    "productName": "NDM — Nogadex Download Manager",
+    "productName": "NDM - Nogadex Download Manager",
     "directories": {
       "output": "release"
     },

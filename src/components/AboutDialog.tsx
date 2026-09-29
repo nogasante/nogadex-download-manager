@@ -11,6 +11,7 @@ import {
 } from '../config/appInfo';
 import ndmLogo from '../assets/logo.png';
 import { openExternal } from '../utils/openExternal';
+import { useAppConfig } from '../hooks/useAppConfig';
 
 interface AboutDialogProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
   isStandalone = false,
   autoCheck = false,
 }) => {
+  const appConfig = useAppConfig();
   const [updateStatus, setUpdateStatus] = useState<string>('idle');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
@@ -241,7 +243,7 @@ export const AboutDialog: React.FC<AboutDialogProps> = ({
             <span>{APP_COPYRIGHT}</span>
             <a
               href="#"
-              onClick={(e) => { e.preventDefault(); void openExternal('https://github.com/nogasante/nogadex-download-manager/blob/master/LICENSE'); }}
+              onClick={(e) => { e.preventDefault(); void openExternal(appConfig.github.licenseUrl); }}
               className="text-brand hover:underline cursor-pointer"
             >
               Open Source Notices

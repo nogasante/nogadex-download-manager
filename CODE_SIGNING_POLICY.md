@@ -11,9 +11,13 @@ Signing requests are submitted exclusively by the release workflow (`.github/wor
 
 ## Privacy policy
 
-This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+NDM contains no telemetry: no analytics, tracking, advertising, or crash-reporting code, and no accounts or servers of its own. It does, however, make network connections as a download manager. Specifically:
 
-The NDM engine runs locally on `127.0.0.1` only. Update checks contact GitHub Releases only when the user asks for them (Help → Check for Updates). The browser extension communicates exclusively with the local engine — no data leaves the user's machine through NDM.
+- **The local engine.** The NDM engine binds to `127.0.0.1` (loopback) only. The app's interface and the browser extension communicate with the engine locally; this traffic never leaves the user's machine.
+- **The servers the user downloads from.** Download traffic is user-initiated: URLs come from the user or from the browser extension acting on the user's actions. NDM connects directly to those servers to fetch the requested files; downloads are not routed through any NDM-operated system.
+- **GitHub Releases (update checks).** In packaged builds, NDM checks the project's GitHub Releases feed for newer versions automatically at startup, by default. Like any HTTPS request, this exposes the user's IP address to GitHub. The check can be disabled in Options → Updates ("Check automatically for new versions"); a manual check is available in the same place. Update downloads occur only after the user accepts an update, or enables automatic installation on exit.
+
+All NDM data — settings, download state, logs — is stored locally on the user's machine. Proxy and site credentials are encrypted at rest with a key sealed by the OS (plaintext fallback when the engine runs outside the desktop app without OS key sealing).
 
 ## What gets signed
 

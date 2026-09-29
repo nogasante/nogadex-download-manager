@@ -68,11 +68,11 @@ let lastTrayBalloonAt = 0;
 let lastActiveDownloads = [];
 
 function trayTooltipText() {
-  if (trayProgressState.activeCount === 0) return 'NDM — Nogadex Download Manager';
+  if (trayProgressState.activeCount === 0) return 'NDM - Nogadex Download Manager';
   const pct = trayProgressState.totalBytes > 0
     ? Math.min(100, Math.round((trayProgressState.activeBytes / trayProgressState.totalBytes) * 100))
     : 0;
-  return `NDM — ${trayProgressState.activeCount} download${trayProgressState.activeCount === 1 ? '' : 's'} in progress (${pct}%)`;
+  return `NDM - ${trayProgressState.activeCount} download${trayProgressState.activeCount === 1 ? '' : 's'} in progress (${pct}%)`;
 }
 
 function updateTray() {
@@ -106,7 +106,7 @@ function createTray() {
   try {
     const { Tray } = require('electron');
     tray = new Tray(iconPath);
-    tray.setToolTip('NDM — Nogadex Download Manager');
+    tray.setToolTip('NDM - Nogadex Download Manager');
     // Left-click toggles the main window (show/restore or minimize).
     tray.on('click', () => {
       if (!mainWindow || mainWindow.isDestroyed()) return;

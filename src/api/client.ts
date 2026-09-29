@@ -176,6 +176,15 @@ export const api = {
     },
   },
 
+  /** Remote-managed app particulars (links, contact, site URL). */
+  /** Remote-managed app particulars (links, contact, site URL). */
+  appConfig: {
+    get: async (): Promise<import('../../shared/app_config').NdmAppConfig> => {
+      const data = await request<{ config: import('../../shared/app_config').NdmAppConfig }>('/app-config');
+      return data.config;
+    },
+  },
+
   diagnostics: {
     get: async (): Promise<any> => {
       return request('/diagnostics');

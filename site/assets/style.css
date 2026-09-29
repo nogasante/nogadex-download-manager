@@ -758,3 +758,9 @@ footer { background: light-dark(#0f172a, #05070a); color: light-dark(#94a3b8, #8
   .cmd-line { font-size: .72rem; }
   .theme-opt { min-width: 38px; padding: 0 9px; }
 }
+
+/* ---------- prose page (privacy) ---------- */
+.prose { max-width: 76ch; margin: 0 auto; }
+.prose p { margin-bottom: 18px; }
+.prose p:last-child { margin-bottom: 0; }
+.prose h3 { margin-top: 36px; }

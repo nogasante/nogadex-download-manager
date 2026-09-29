@@ -131,7 +131,7 @@ const cmd = (href, icon, label) => `
         <span>${label}</span>
       </a>`;
 
-const NAV = `
+const NAV = (repoUrl) => `
     <div class="appbar">
       <button class="nav-burger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="mobile-nav">
         <span></span><span></span>
@@ -149,7 +149,7 @@ ${cmd('contact.html', 'mail', 'Contact')}
           <button class="theme-opt" type="button" data-scheme="light" aria-label="Light theme">Light</button>
           <button class="theme-opt" type="button" data-scheme="dark" aria-label="Dark theme">Dark</button>
         </div>
-${cmd('https://github.com/nogasante/nogadex-download-manager', 'github', 'GitHub')}
+${cmd(repoUrl, 'github', 'GitHub')}
       </div>
       <nav class="mobile-nav" id="mobile-nav" aria-label="Pages" hidden>
         <a href="index.html">Home</a>
@@ -158,11 +158,11 @@ ${cmd('https://github.com/nogasante/nogadex-download-manager', 'github', 'GitHub
         <a href="features.html">Features</a>
         <a href="faq.html">FAQ</a>
         <a href="contact.html">Contact</a>
-        <a href="https://github.com/nogasante/nogadex-download-manager" target="_blank" rel="noopener">GitHub ↗</a>
+        <a href="${repoUrl}" target="_blank" rel="noopener">GitHub ↗</a>
       </nav>
     </div>`;
 
-const FOOTER = `
+const FOOTER = (repoUrl) => `
     <div class="wrap">
       <div class="foot-grid">
         <div class="foot-brand">
@@ -182,17 +182,19 @@ const FOOTER = `
             <a href="faq.html">FAQ</a>
             <a href="contact.html">Contact</a>
             <a href="changelog.html">Changelog</a>
+            <a href="privacy.html">Privacy</a>
           </div>
           <div class="col">
             <h5>Project</h5>
-            <a href="https://github.com/nogasante/nogadex-download-manager" target="_blank" rel="noopener">GitHub</a>
-            <a href="https://github.com/nogasante/nogadex-download-manager/releases" target="_blank" rel="noopener">Releases</a>
-            <a href="https://github.com/nogasante/nogadex-download-manager/issues" target="_blank" rel="noopener">Issues</a>
-            <a href="https://github.com/nogasante/nogadex-download-manager/blob/master/LICENSE" target="_blank" rel="noopener">License (MIT)</a>
+            <a href="${repoUrl}" target="_blank" rel="noopener">GitHub</a>
+            <a href="${repoUrl}/releases" target="_blank" rel="noopener">Releases</a>
+            <a href="${repoUrl}/issues" target="_blank" rel="noopener">Issues</a>
+            <a href="${repoUrl}/blob/master/LICENSE" target="_blank" rel="noopener">License (MIT)</a>
+            <a href="privacy.html">Privacy</a>
           </div>
         </div>
       </div>
-      <div class="foot-legal">© 2026 Nogadex Systems — MIT License.</div>
+      <div class="foot-legal">© 2026 Nogadex Systems, MIT License.</div>
     </div>`;
 
 const here = location.pathname.split('/').pop() || 'index.html';
@@ -204,5 +206,24 @@ const mount = (id, html) => {
     if (a.getAttribute('href') === here) a.classList.add('active');
   });
 };
-mount('site-nav', NAV);
-mount('site-footer', FOOTER);
+
+/* Repo URL for nav/footer comes from app-config.json (shared with the app);
+   falls back to the baked repo while the fetch is in flight or offline. */
+const BAKED_REPO_URL = 'https://github.com/nogasante/nogadex-download-manager';
+let repoUrl = BAKED_REPO_URL;
+
+const renderPartials = () => {
+  mount('site-nav', NAV(repoUrl));
+  mount('site-footer', FOOTER(repoUrl));
+};
+
+(async () => {
+  try {
+    const res = await fetch('app-config.json', { cache: 'no-store' });
+    if (res.ok) {
+      const c = await res.json();
+      if (c && c.github && c.github.repoUrl) repoUrl = c.github.repoUrl;
+    }
+  } catch { /* baked fallback already set */ }
+  renderPartials();
+})();

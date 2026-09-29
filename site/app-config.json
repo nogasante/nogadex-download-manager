@@ -1,0 +1,29 @@
+{
+  "configVersion": 1,
+  "site": {
+    "baseUrl": ""
+  },
+  "branding": {
+    "appName": "Nogadex Download Manager",
+    "shortName": "NDM",
+    "company": "Nogadex Systems"
+  },
+  "github": {
+    "owner": "nogasante",
+    "repo": "nogadex-download-manager",
+    "branch": "master",
+    "repoUrl": "https://github.com/nogasante/nogadex-download-manager",
+    "releasesUrl": "https://github.com/nogasante/nogadex-download-manager/releases",
+    "issuesUrl": "https://github.com/nogasante/nogadex-download-manager/issues",
+    "newIssueUrl": "https://github.com/nogasante/nogadex-download-manager/issues/new",
+    "licenseUrl": "https://github.com/nogasante/nogadex-download-manager/blob/master/LICENSE"
+  },
+  "contact": {
+    "email": "nanasante2000@gmail.com",
+    "subjectPrefix": "[NDM]"
+  },
+  "links": {
+    "signPath": "https://signpath.io",
+    "signPathFoundation": "https://signpath.org"
+  }
+}

@@ -15,6 +15,7 @@ import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { getNativeAppIcon } from './native_icon_extractor';
+import { getAppConfig, refreshAppConfig } from '../shared/app_config';
 
 const app = express();
 const port = parseInt(process.env.PORT || '5005', 10);
@@ -323,6 +324,13 @@ app.use('/api', (req, res, next) => {
     return res.status(403).json({ error: auth.error || 'Unauthorized' });
   }
   next();
+});
+
+app.get('/api/app-config', (_req, res) => {
+  // Remote refresh is best-effort and bounded by its own timeout; the baked
+  // defaults make this endpoint answer instantly even with no internet.
+  void refreshAppConfig().catch(() => {});
+  res.json({ config: getAppConfig() });
 });
 
 app.get('/api/settings', (_req, res) => {

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy — NDM</title>
+<meta name="description" content="What NDM connects to, what stays on your computer, and which settings you can change.">
+<meta name="theme-color" content="#005a9e">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" href="assets/favicon.ico">
+<script>/* theme before first paint — no flash */
+(function(){var s=localStorage.getItem('ndm-theme');document.documentElement.style.colorScheme=(s==='light'||s==='dark')?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');})();</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="site-nav"></header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <h2 style="text-align:center">Privacy</h2>
+      <p class="dl-sub">What NDM connects to, what stays on your computer, and which settings you can change.</p>
+
+      <div class="prose">
+
+        <p>NDM runs entirely on your computer. The app has no telemetry, no analytics, no ads, and no user accounts.</p>
+
+        <p>Because NDM is a download manager, it does use your internet connection. This page explains what it connects to, what stays on your machine, and which settings you can change.</p>
+
+        <h3 class="col-head">What NDM connects to</h3>
+
+        <p><b>Your own machine.</b> The download engine is a small server that listens on <code>127.0.0.1</code>, your computer's loopback address. Only programs on your machine can reach it, and requests need a local access token. The NDM window and the browser extension talk to it this way. None of this traffic leaves your computer.</p>
+
+        <p><b>The servers you download from.</b> When you add a download, NDM connects directly to the server hosting the file, the same way your browser would. It doesn't matter whether you paste a link, use an <code>ndm://</code> link, or grab a link with the browser extension. Your downloads never pass through a server run by us, and NDM saves them only to the folder you picked.</p>
+
+        <p><b>GitHub, for update checks.</b> Installed builds check GitHub Releases for newer versions of NDM. This check runs automatically when the app starts, and it is on by default. You can turn it off in Options &rarr; Updates if you would rather check yourself. A manual check button is in the same place.</p>
+
+        <p>The check is a normal HTTPS request, so GitHub sees your IP address, just like any website you visit. NDM doesn't attach anything else to it. When a new version is found, nothing downloads until you accept it, unless you have turned on automatic installation in Options &rarr; Updates.</p>
+
+        <h3 class="col-head">What stays on your computer</h3>
+
+        <p>NDM keeps its data on your machine. Download state, settings, and history live in your download folder and user data folder, and the engine writes a log to <code>~/.ndm</code>.</p>
+
+        <p>Proxy passwords and site credentials are encrypted with a key your operating system protects. One honest caveat: that OS protection is not available when the engine runs on its own, outside the desktop app. In that case credentials are stored in plain text.</p>
+
+        <p>Diagnostics are only gathered when you open the diagnostics window or export a report, and the export is saved wherever you choose.</p>
+
+        <h3 class="col-head">The browser extension</h3>
+
+        <p>The extension talks only to the NDM engine on your own machine. Out of the box it can hand links to NDM without touching page content.</p>
+
+        <p>Reading page content or sending a site's cookies to the engine, which some servers require to download a file, is opt-in. It turns on only after you click the NDM toolbar icon and approve the permission prompt in your browser. Click the icon again to turn it off.</p>
+
+        <h3 class="col-head">This website</h3>
+
+        <p>These pages are static files. No cookies, no analytics, no tracking.</p>
+
+        <p>Your browser stores one thing here: your light or dark theme choice. To show the current version and release list, the site fetches public release data from GitHub's API.</p>
+
+        <p>The contact form doesn't send anything through a server. It opens your own email app with the message filled in, so you can read everything before you send it.</p>
+
+        <h3 class="col-head">Personal information</h3>
+
+        <p>NDM doesn't ask for your name, email, or any other personal details, and there is no account to create.</p>
+
+        <p>If you email us or open an issue on GitHub, that conversation happens in your email app or on GitHub, not inside NDM.</p>
+
+        <p>NDM is open source. Everything on this page can be checked against the code at <a id="privacy-repo-link" href="https://github.com/nogasante/nogadex-download-manager" target="_blank" rel="noopener">github.com/nogasante/nogadex-download-manager</a>.</p>
+
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/partials.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

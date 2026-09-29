@@ -12,6 +12,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Never watch build outputs: electron-builder creates release/win-unpacked.tmp
+    // during packaging, and this dev server's watcher holding a handle on it
+    // breaks the final rename with EPERM.
+    watch: {
+      ignored: ['**/release/**', '**/release-build/**', '**/dist/**', '**/dist-server/**'],
+    },
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:5005',

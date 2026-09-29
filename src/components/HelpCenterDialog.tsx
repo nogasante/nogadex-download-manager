@@ -16,6 +16,7 @@ import { WindowsDialog } from './common/WindowsDialog';
 import { WinButton } from './common/WinControls';
 import { APP_NAME, APP_SHORT_NAME, APP_VERSION, APP_ARCH } from '../config/appInfo';
 import { openExternal } from '../utils/openExternal';
+import { useAppConfig } from '../hooks/useAppConfig';
 
 type HelpTab = 'howto' | 'faq' | 'bug' | 'feedback' | 'legal';
 
@@ -28,9 +29,6 @@ interface HelpCenterDialogProps {
   initialGuide?: string;
 }
 
-const GITHUB_REPO = 'https://github.com/nogasante/nogadex-download-manager';
-const GITHUB_NEW_ISSUE = `${GITHUB_REPO}/issues/new`;
-
 const TABS: { id: HelpTab; label: string; icon: React.ReactNode }[] = [
   { id: 'howto', label: 'How-To Guides', icon: <BookOpen size={14} /> },
   { id: 'faq', label: 'FAQ', icon: <CircleHelp size={14} /> },
@@ -42,7 +40,7 @@ const TABS: { id: HelpTab; label: string; icon: React.ReactNode }[] = [
 /**
  * A guided how-to "book": the user picks a topic from the shelf, then reads
  * it page by page (one page = one step group). Adding a new guide is just a
- * new object here — the browser UI, pagination and progress come for free.
+ * new object here; the browser UI, pagination and progress come for free.
  */
 interface GuidePage {
   /** Optional page heading; defaults to "Step N". */
@@ -72,7 +70,7 @@ const GUIDES: Guide[] = [
     pages: [
       {
         heading: 'Open the address dialog',
-        body: 'Press Ctrl+N, click "Add URL" on the toolbar, or paste a link directly — the address dialog opens and picks up whatever URL is on your clipboard.',
+        body: 'Press Ctrl+N, click "Add URL" on the toolbar, or paste a link directly. The address dialog opens and picks up whatever URL is on your clipboard.',
       },
       {
         heading: 'Confirm the address',
@@ -86,7 +84,7 @@ const GUIDES: Guide[] = [
       },
       {
         heading: 'Start it',
-        body: 'Click "Download Now" to start immediately — the live progress window opens by itself. Choose "Download Later" to place it in the queue paused.',
+        body: 'Click "Download Now" to start immediately; the live progress window opens by itself. Choose "Download Later" to place it in the queue paused.',
       },
     ],
   },
@@ -98,11 +96,11 @@ const GUIDES: Guide[] = [
     pages: [
       {
         heading: 'Pause any download',
-        body: 'Select the row and press Space, or click Pause. NDM remembers exactly how much of the file is already on disk — nothing is lost.',
+        body: 'Select the row and press Space, or click Pause. NDM remembers exactly how much of the file is already on disk, so nothing is lost.',
       },
       {
         heading: 'Resume where it stopped',
-        body: 'Click Resume (or press Space again). The download continues exactly where it stopped — even after closing the app or rebooting.',
+        body: 'Click Resume (or press Space again). The download continues exactly where it stopped, even after closing the app or rebooting.',
       },
       {
         heading: 'Retry failures in place',
@@ -123,7 +121,7 @@ const GUIDES: Guide[] = [
     pages: [
       {
         heading: 'Expired or refused links',
-        body: 'Some links stop working after a while, or the server refuses automated downloads. Click Refresh Link in the failed download\'s window and hand NDM a fresh link from your browser — the parts already on disk are kept.',
+        body: 'Some links stop working after a while, or the server refuses automated downloads. Click Refresh Link in the failed download\'s window and hand NDM a fresh link from your browser; the parts already on disk are kept.',
       },
       {
         heading: 'Sites that need a sign-in',
@@ -132,7 +130,7 @@ const GUIDES: Guide[] = [
       },
       {
         heading: '“Server refused this automated download”',
-        body: 'A few sites deliberately block download managers. No setting changes that — open the link in your browser, start the download there, and let your browser hand it to NDM (see the browser capture guide).',
+        body: 'A few sites deliberately block download managers. No setting changes that. Open the link in your browser, start the download there, and let your browser hand it to NDM (see the browser capture guide).',
       },
       {
         heading: 'File not found (404)',
@@ -152,12 +150,12 @@ const GUIDES: Guide[] = [
       },
       {
         heading: 'Site Grabber',
-        body: 'Press Ctrl+G, enter a page URL and NDM collects every downloadable link on it. Filter by file type — video, audio, documents, archives — or custom extensions.',
+        body: 'Press Ctrl+G, enter a page URL and NDM collects every downloadable link on it. Filter by file type (video, audio, documents, archives) or custom extensions.',
         note: 'Select exactly the files you want before starting; nothing is downloaded until you confirm.',
       },
       {
         heading: 'Review & start',
-        body: 'Both tools show a final list before starting. Untick anything you don\'t need, choose the folder, and start — the queue engine schedules the rest.',
+        body: 'Both tools show a final list before starting. Untick anything you don\'t need, choose the folder, and start; the queue engine schedules the rest.',
       },
     ],
   },
@@ -194,18 +192,18 @@ const GUIDES: Guide[] = [
       },
       {
         heading: 'Watch for drift',
-        body: 'Later scans re-verify. Files whose content changed since the baseline are flagged (baseline drift) — useful for archives you care about.',
+        body: 'Later scans re-verify. Files whose content changed since the baseline are flagged (baseline drift), useful for archives you care about.',
       },
       {
         heading: 'Multi-part verification',
-        body: 'Big files are checked in sections while they download, so damage is caught during the download — not after you\'ve tried to open the file.',
+        body: 'Big files are checked in sections while they download, so damage is caught during the download, not after you\'ve tried to open the file.',
       },
     ],
   },
   {
     id: 'browser-capture',
     title: 'Browser capture & capture keys',
-    summary: 'Hand downloads from your browser to NDM — on your terms.',
+    summary: 'Hand downloads from your browser to NDM, on your terms.',
     icon: <BookOpen size={13} />,
     pages: [
       {
@@ -230,7 +228,7 @@ const GUIDES: Guide[] = [
     pages: [
       {
         heading: 'What Auto does',
-        body: 'Auto picks the number of connections by file size — one for small files, more for large ones, up to 32 — balancing speed against server limits.',
+        body: 'Auto picks the number of connections by file size: one for small files, more for large ones, up to 32, balancing speed against server limits.',
       },
       {
         heading: 'When to go fixed',
@@ -238,7 +236,7 @@ const GUIDES: Guide[] = [
       },
       {
         heading: 'One stream can be enough',
-        body: 'If a single connection already saturates your bandwidth, more streams gain nothing — Auto accounts for this on small files.',
+        body: 'If a single connection already saturates your bandwidth, more streams gain nothing; Auto accounts for this on small files.',
       },
     ],
   },
@@ -249,13 +247,13 @@ const GUIDES: Guide[] = [
     icon: <BookOpen size={13} />,
     pages: [
       {
-        heading: 'It just works — nothing to set up',
+        heading: 'It just works, nothing to set up',
         body: 'When you installed NDM, it told Windows: "when something opens an NDM link, bring it to me". You never need to think about this yourself.',
       },
       {
         heading: 'What you\'ll see',
         body: 'If another app or a website offers a "Download with NDM" button and you click it, NDM pops open its download window with the link already filled in. Check the details and click Download Now as usual.',
-        note: 'Don\'t worry if you never use this — it changes nothing about how you normally add downloads.',
+        note: 'Don\'t worry if you never use this; it changes nothing about how you normally add downloads.',
       },
       {
         heading: 'If nothing happens when you click such a button',
@@ -280,7 +278,7 @@ const KEYBOARD_SHORTCUTS: { keys: string; action: string }[] = [
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: 'Is NDM free?',
-    a: 'Yes. NDM is open-source software released under the MIT License — free for personal and commercial use.',
+    a: 'Yes. NDM is open-source software released under the MIT License, free for personal and commercial use.',
   },
   {
     q: 'Where are my downloads saved?',
@@ -295,23 +293,23 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
     a: 'Some servers limit the speed per connection, while others throttle or block clients that open too many. Auto mode balances this for you; for stubborn servers, try a fixed count of 4–8 connections.',
   },
   {
-    q: 'A download failed — what can I do?',
+    q: 'A download failed. What can I do?',
     a: 'Retry it in place (right-click → Retry, or Retry All Failed from the Resume dropdown). If the file requires a login, use "Refresh URL" to provide fresh cookies or an authenticated link, then retry.',
   },
   {
-    q: 'A download says "Preparing" for a long time — is something wrong?',
-    a: 'NDM is asking the server for the file\'s size and whether it supports resuming. Slow servers can take a while, and NDM retries automatically. If it stays in this state, the server is simply slow to answer — the download will usually start on its own.',
+    q: 'A download says "Preparing" for a long time. Is something wrong?',
+    a: 'NDM is asking the server for the file\'s size and whether it supports resuming. Slow servers can take a while, and NDM retries automatically. If it stays in this state, the server is simply slow to answer, and the download will usually start on its own.',
   },
   {
     q: 'Does NDM collect my data?',
-    a: 'No. There is no telemetry. The engine runs locally on your machine and only talks to the servers you download from. Update checks contact GitHub only when you ask for them.',
+    a: 'No. NDM has no telemetry, analytics, or ads. The engine runs on your machine and talks to the servers you download from. Installed builds also check GitHub for updates when the app starts; you can turn that off in Options → Updates.',
   },
   {
     q: 'Why does Windows SmartScreen warn me when installing?',
     a: `The installer is not signed with a paid certificate yet, so Windows shows "Windows protected your PC" for unpublished apps. Click "More info" → "Run anyway". The binaries are built reproducibly from the public source in this repository.`,
   },
   {
-    q: 'My antivirus flagged the installer — is it safe?',
+    q: 'My antivirus flagged the installer. Is it safe?',
     a: 'This is a false positive common for unsigned installers. You can verify by building from source yourself: npm run dist. If your AV persists, add an exclusion for the NDM install folder.',
   },
   {
@@ -319,7 +317,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
     a: 'Help → Check for Updates… queries the GitHub Releases page. From there you can download and install updates with one click; NDM warns you first if downloads are still running.',
   },
   {
-    q: 'Adding the same URL twice — what happens?',
+    q: 'What happens if I add the same URL twice?',
     a: 'Nothing is duplicated. Failed or queued rows are retried in place, and active or completed rows are left untouched with their existing file.',
   },
 ];
@@ -367,6 +365,8 @@ export const HelpCenterDialog: React.FC<HelpCenterDialogProps> = ({
   initialGuide,
 }) => {
   const [tab, setTab] = useState<HelpTab>(initialTab || 'howto');
+  const appConfig = useAppConfig();
+  const GITHUB_NEW_ISSUE = appConfig.github.newIssueUrl;
 
   // ---- Guide book state ----------------------------------------------------
   // guideId: which guide is open (null = the shelf). page: current page index.
@@ -426,7 +426,7 @@ export const HelpCenterDialog: React.FC<HelpCenterDialogProps> = ({
     const url = `${GITHUB_NEW_ISSUE}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
     try {
       await openExternal(url);
-      setReportStatus('Opening GitHub in your browser — the report is pre-filled. A local backup copy was saved.');
+      setReportStatus('Opening GitHub in your browser; the report is pre-filled. A local backup copy was saved.');
     } catch {
       setReportStatus('Could not open the browser. The report was saved locally instead.');
     }
@@ -678,7 +678,7 @@ export const HelpCenterDialog: React.FC<HelpCenterDialogProps> = ({
           {tab === 'feedback' && (
             <div className="space-y-3 text-[12px]">
               <div className="p-2.5 bg-neutral-100 border border-neutral-300 rounded-[2px] text-[11.5px] text-neutral-700 leading-relaxed">
-                Feature ideas, workflow complaints, things you love — all welcome. The most
+                Feature ideas, workflow complaints, things you love: all welcome. The most
                 requested features make it into the next release.
               </div>
               <div>
@@ -735,7 +735,7 @@ export const HelpCenterDialog: React.FC<HelpCenterDialogProps> = ({
                 </div>
               </div>
               <div className="text-[11px] text-neutral-500">
-                {APP_NAME} v{APP_VERSION} — Copyright © 2026 Nogadex Systems. All trademarks are the property of their respective owners.
+                {APP_NAME} v{APP_VERSION}. Copyright © 2026 Nogadex Systems. All trademarks are the property of their respective owners.
               </div>
             </div>
           )}
