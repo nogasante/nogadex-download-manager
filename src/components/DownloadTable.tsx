@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DownloadItem } from '../types/download';
 import { FileIcon } from './FileIcon';
 import { ColumnFilterDropdown, COLUMN_FILTER_CONFIGS } from './ColumnFilterDropdown';
@@ -53,6 +54,7 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
   queueAssignments = {},
   queueNames = {},
 }) => {
+  const { t } = useTranslation();
   const [sortField, setSortField] = useState<keyof DownloadItem>('createdAt');
   const [sortAsc, setSortAsc] = useState(false);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
@@ -389,14 +391,14 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
 
         <thead className="sticky top-0 z-20 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
           <tr>
-            {renderHeaderCell('filename', 'filename', 'File Name', selectAllCheckbox)}
-            {renderHeaderCell('totalBytes', 'totalBytes', 'Size')}
-            {renderHeaderCell('status', 'status', 'Status')}
-            {renderHeaderCell('etaSeconds', 'etaSeconds', 'Time left')}
-            {renderHeaderCell('speedBps', 'speedBps', 'Transfer rate')}
-            {renderHeaderCell('queue', 'queue', 'Queue')}
-            {renderHeaderCell('createdAt', 'createdAt', 'Last Try Date')}
-            {renderHeaderCell('url', 'url', 'Description')}
+            {renderHeaderCell('filename', 'filename', t('table.fileName'), selectAllCheckbox)}
+            {renderHeaderCell('totalBytes', 'totalBytes', t('table.size'))}
+            {renderHeaderCell('status', 'status', t('table.status'))}
+            {renderHeaderCell('etaSeconds', 'etaSeconds', t('table.timeLeft'))}
+            {renderHeaderCell('speedBps', 'speedBps', t('table.transferRate'))}
+            {renderHeaderCell('queue', 'queue', t('table.queue'))}
+            {renderHeaderCell('createdAt', 'createdAt', t('table.lastTryDate'))}
+            {renderHeaderCell('url', 'url', t('table.description'))}
           </tr>
         </thead>
 

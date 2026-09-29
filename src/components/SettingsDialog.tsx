@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppSettings } from '../types/download';
 import { WindowsDialog } from './common/WindowsDialog';
 import { WinCheckbox, WinInput, WinSelect, WinButton, WinGroupBox, WinTabs } from './common/WinControls';
@@ -89,6 +90,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   onSaveSettings,
   isStandalone = false,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'connection' | 'saveto' | 'filetypes' | 'browser' | 'sounds' | 'proxy' | 'logins' | 'updates'>('general');
 
   // Updates Subsystem (Section 26)
@@ -401,16 +403,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   );
 
   const tabs = [
-    { id: 'general', label: 'General' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'connection', label: 'Connection' },
-    { id: 'saveto', label: 'Save To' },
-    { id: 'filetypes', label: 'File Types' },
-    { id: 'browser', label: 'Browser' },
-    { id: 'sounds', label: 'Sounds' },
-    { id: 'proxy', label: 'Proxy / SOCKS' },
-    { id: 'logins', label: 'Site Logins' },
-    { id: 'updates', label: 'Updates' },
+    { id: 'general', label: t('settings.tabGeneral') },
+    { id: 'appearance', label: t('settings.tabAppearance') },
+    { id: 'connection', label: t('settings.tabConnection') },
+    { id: 'saveto', label: t('settings.tabSaveto') },
+    { id: 'filetypes', label: t('settings.tabFiletypes') },
+    { id: 'browser', label: t('settings.tabBrowser') },
+    { id: 'sounds', label: t('settings.tabSounds') },
+    { id: 'proxy', label: t('settings.tabProxy') },
+    { id: 'logins', label: t('settings.tabLogins') },
+    { id: 'updates', label: t('settings.tabUpdates') },
   ];
 
   return (
@@ -429,36 +431,36 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         {/* General Tab */}
         {activeTab === 'general' && (
           <div className="space-y-4">
-            <WinGroupBox title="Startup & Integration" className="space-y-2.5">
+            <WinGroupBox title={t('settings.startupIntegration')} className="space-y-2.5">
               <WinCheckbox
                 checked={autoStart}
                 onChange={setAutoStart}
-                label="Start downloading immediately when a new URL is added"
+                label={t('settings.autoStart')}
               />
               <div />
               <WinCheckbox
                 checked={monitorClipboard}
                 onChange={setMonitorClipboard}
-                label="Automatically monitor clipboard for downloadable media links"
+                label={t('settings.monitorClipboard')}
               />
               <div />
               <WinCheckbox
                 checked={overwrite}
                 onChange={setOverwrite}
-                label="Overwrite existing files automatically without prompting"
+                label={t('settings.overwriteExisting')}
               />
             </WinGroupBox>
 
-            <WinGroupBox title="List Interaction" className="space-y-2">
+            <WinGroupBox title={t('settings.listInteraction')} className="space-y-2">
               <div className="flex items-center gap-3">
-                <label className="text-neutral-600">Double-click item action:</label>
+                <label className="text-neutral-600">{t('settings.doubleClickAction')}</label>
                 <WinSelect
                   value={doubleClickAction}
                   onChange={(e) => setDoubleClickAction(e.target.value as any)}
                 >
-                  <option value="open_file">Open downloaded file</option>
-                  <option value="open_folder">Open containing folder in Explorer</option>
-                  <option value="properties">Show download properties sheet</option>
+                  <option value="open_file">{t('settings.dclickOpenFile')}</option>
+                  <option value="open_folder">{t('settings.dclickOpenFolder')}</option>
+                  <option value="properties">{t('settings.dclickProperties')}</option>
                 </WinSelect>
               </div>
             </WinGroupBox>
@@ -468,16 +470,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         {/* Appearance Tab — theme, zoom and icons; every change applies live */}
         {activeTab === 'appearance' && (
           <div className="space-y-4">
-            <WinGroupBox title="Theme" className="space-y-2.5">
+            <WinGroupBox title={t('settings.theme')} className="space-y-2.5">
               <p className="text-[11.5px] text-neutral-500">
                 Applies instantly to this window and every open dialog.
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {(
                   [
-                    { value: 'light', label: 'Light' },
-                    { value: 'dark', label: 'Dark' },
-                    { value: 'system', label: 'System' },
+                    { value: 'light', label: t('settings.themeLight') },
+                    { value: 'dark', label: t('settings.themeDark') },
+                    { value: 'system', label: t('settings.themeLight') + ' / ' + t('settings.themeDark') },
                   ] as const
                 ).map((opt) => {
                   const selected = appearance.theme === opt.value;

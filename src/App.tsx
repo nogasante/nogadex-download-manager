@@ -1,5 +1,6 @@
 import { MessageBoxDialog } from './components/MessageBoxDialog';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TitleBar } from './components/TitleBar';
 import { MenuBar } from './components/MenuBar';
 import { Toolbar } from './components/Toolbar';
@@ -31,6 +32,7 @@ import { getApiBaseUrl, getWsUrl } from './config/apiConfig';
 const API_BASE = `${getApiBaseUrl()}/api`;
 
 export const App: React.FC = () => {
+  const { t } = useTranslation();
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<string>('all');
@@ -506,7 +508,7 @@ export const App: React.FC = () => {
 
   const handleDeleteAll = async () => {
     if (safeDownloads.length === 0) return;
-    const message = 'Are you sure you want to remove ALL downloads from the list?';
+    const message = t('confirms.deleteAll');
 
     if ((window as any).electronAPI?.showNativeMessageBox) {
       const resp = await (window as any).electronAPI.showNativeMessageBox({
@@ -601,8 +603,8 @@ export const App: React.FC = () => {
     if (selectedIds.size === 0) return;
     const count = selectedIds.size;
     const message = count === 1
-      ? 'Are you sure you want to remove the selected download from the list?'
-      : `Are you sure you want to remove all ${count} selected downloads from the list?`;
+      ? t('confirms.deleteOne')
+      : t('confirms.deleteMany', { count });
 
     if ((window as any).electronAPI?.showNativeMessageBox) {
       const resp = await (window as any).electronAPI.showNativeMessageBox({

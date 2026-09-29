@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { DownloadItem } from '../../types/download';
 import { formatPercentage } from '../../utils/formatters';
 
@@ -23,9 +24,10 @@ const STATUS_STYLES: Record<DownloadItem['status'], string> = {
   queued: 'text-status-queued font-normal',
 };
 
-const STATUS_LABELS: Partial<Record<DownloadItem['status'], string>> = {
-  completed: 'Complete',
-  probing: 'Downloading',
+/** Statuses whose display label differs from their raw engine name. */
+const STATUS_LABEL_KEYS: Partial<Record<DownloadItem['status'], string>> = {
+  completed: 'status.complete',
+  probing: 'status.downloading',
 };
 
 export const DownloadStatusBadge: React.FC<DownloadStatusBadgeProps> = ({
@@ -35,8 +37,10 @@ export const DownloadStatusBadge: React.FC<DownloadStatusBadgeProps> = ({
   className = '',
   showPercentage = true,
 }) => {
+  const { t } = useTranslation();
   const pct = formatPercentage(downloadedBytes, totalBytes);
-  const label = STATUS_LABELS[status] ?? status;
+  // Raw engine statuses render capitalized as-is unless remapped above.
+  const label = STATUS_LABEL_KEYS[status] ? t(STATUS_LABEL_KEYS[status]!) : status;
   const showPct = showPercentage && status !== 'queued';
 
   return (

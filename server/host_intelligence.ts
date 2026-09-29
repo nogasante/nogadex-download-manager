@@ -243,9 +243,14 @@ export class HostIntelligence {
       if (domain.endsWith('uploadhaven.com')) {
         return 'https://uploadhaven.com/';
       }
-      return `${parsed.protocol}//${parsed.hostname}/`;
+      // Unknown domains: no Referer. Many file hosts run anti-hotlink WAFs
+      // that 403 any request bearing one (observed on thinkbroadband), and a
+      // download manager behaves like direct navigation, which sends none.
+      // Domains with a known Referer requirement are listed above; captured
+      // browser credentials can still supply one per download.
+      return '';
     } catch {
-      return 'https://uploadhaven.com/';
+      return '';
     }
   }
 

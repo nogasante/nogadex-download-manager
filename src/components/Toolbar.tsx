@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { 
   Icon3DAdd,
   Icon3DResume,
@@ -154,6 +155,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSearchChange,
   searchInputRef,
 }) => {
+  const { t } = useTranslation();
   const [openDropdown, setOpenDropdown] = useState<'resume' | 'pause' | 'stop' | 'delete' | 'startQueue' | 'stopQueue' | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -225,8 +227,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Add URL */}
         <ToolbarButton
           onClick={onAddUrl}
-          title="Add New Download URL (Ctrl+N)"
-          label="Add URL"
+          title={t('toolbar.addUrl')}
+          label={t('toolbar.addUrl')}
           icon={<Icon3DAdd className="w-9 h-9 drop-shadow-xs" />}
         />
 
@@ -236,8 +238,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onToggleDropdown={() => toggleDropdown('resume')}
           isOpen={openDropdown === 'resume'}
           disabled={!canResume}
-          title="Resume Selected Downloads"
-          label="Resume"
+          title={t('toolbar.resume')}
+          label={t('toolbar.resume')}
           icon={<Icon3DResume className="w-9 h-9 drop-shadow-xs" />}
           dropdownMenu={
             <div className="absolute top-[66px] left-0 z-50 min-w-[190px] bg-white border border-neutral-400 rounded-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.18)] py-1">
@@ -246,14 +248,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={() => { setOpenDropdown(null); onResumeSelected(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-800"
               >
-                <span>Resume Selected</span>
+                <span>{t('toolbar.resumeSelectedMenu')}</span>
                 <span className="text-[10px] opacity-60">Ctrl+R</span>
               </button>
               <button
                 onClick={() => { setOpenDropdown(null); onResumeAll?.(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer"
               >
-                <span>Resume All</span>
+                <span>{t('toolbar.resumeAllMenu')}</span>
                 <span className="text-[10px] opacity-60">Ctrl+Shift+R</span>
               </button>
               <div className="h-[1px] bg-neutral-200 my-1 mx-2" />
@@ -263,7 +265,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 title="Retry every errored download at once"
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-800"
               >
-                <span>Retry All Failed</span>
+                <span>{t('toolbar.retryAllFailedMenu')}</span>
                 <span className="text-[10px] opacity-60">Ctrl+Alt+R</span>
               </button>
             </div>
@@ -276,8 +278,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onToggleDropdown={() => toggleDropdown('pause')}
           isOpen={openDropdown === 'pause'}
           disabled={!canPause}
-          title="Pause Selected Downloads"
-          label="Pause"
+          title={t('toolbar.pause')}
+          label={t('toolbar.pause')}
           icon={<Icon3DPause className="w-9 h-9 drop-shadow-xs" />}
           dropdownMenu={
             <div className="absolute top-[66px] left-0 z-50 min-w-[190px] bg-white border border-neutral-400 rounded-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.18)] py-1">
@@ -286,14 +288,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={() => { setOpenDropdown(null); onPauseSelected(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-800"
               >
-                <span>Pause Selected</span>
+                <span>{t('toolbar.pauseSelectedMenu')}</span>
                 <span className="text-[10px] opacity-60">Ctrl+P</span>
               </button>
               <button
                 onClick={() => { setOpenDropdown(null); onPauseAll(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer"
               >
-                <span>Pause All</span>
+                <span>{t('toolbar.pauseAllMenu')}</span>
                 <span className="text-[10px] opacity-60">Ctrl+Shift+P</span>
               </button>
             </div>
@@ -306,8 +308,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onToggleDropdown={() => toggleDropdown('stop')}
           isOpen={openDropdown === 'stop'}
           disabled={!canPause}
-          title="Stop Selected Downloads"
-          label="Stop"
+          title={t('toolbar.stop')}
+          label={t('toolbar.stop')}
           icon={<Icon3DStop className="w-9 h-9 drop-shadow-xs" />}
           dropdownMenu={
             <div className="absolute top-[66px] left-0 z-50 min-w-[190px] bg-white border border-neutral-400 rounded-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.18)] py-1">
@@ -316,13 +318,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={() => { setOpenDropdown(null); (onStopSelected || onPauseSelected)(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-800"
               >
-                <span>Stop Selected</span>
+                <span>{t('toolbar.stopSelectedMenu')}</span>
               </button>
               <button
                 onClick={() => { setOpenDropdown(null); (onStopAll || onPauseAll)(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer"
               >
-                <span>Stop All</span>
+                <span>{t('toolbar.stopAllMenu')}</span>
               </button>
             </div>
           }
@@ -335,8 +337,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           isOpen={openDropdown === 'delete'}
           disabled={!canDelete}
           hoverDanger={true}
-          title="Delete Selected (Del)"
-          label="Delete"
+          title={t('toolbar.delete')}
+          label={t('toolbar.delete')}
           icon={<Icon3DDelete className="w-9 h-9 drop-shadow-xs" />}
           dropdownMenu={
             <div className="absolute top-[66px] left-0 z-50 min-w-[210px] bg-white border border-neutral-400 rounded-[2px] shadow-[0_4px_16px_rgba(0,0,0,0.18)] py-1">
@@ -345,7 +347,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={() => { setOpenDropdown(null); onDeleteSelected(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-800"
               >
-                <span>Delete Selected</span>
+                <span>{t('toolbar.deleteSelectedMenu')}</span>
                 <span className="text-[10px] opacity-60">Del</span>
               </button>
               <button
@@ -353,20 +355,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 onClick={() => { setOpenDropdown(null); onDeleteCompleted(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-neutral-800"
               >
-                <span>Delete Completed</span>
+                <span>{t('toolbar.deleteCompletedMenu')}</span>
               </button>
               <button
                 onClick={() => { setOpenDropdown(null); onDeleteIncomplete?.(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-neutral-800 hover:bg-brand-glow hover:text-white flex items-center justify-between cursor-pointer"
               >
-                <span>Delete Incomplete / Paused</span>
+                <span>{t('toolbar.deleteIncompleteMenu')}</span>
               </button>
               <div className="my-1 border-t border-neutral-200" />
               <button
                 onClick={() => { setOpenDropdown(null); onDeleteAll?.(); }}
                 className="w-full text-left px-3 py-1.5 text-[12px] text-status-error hover:bg-status-error hover:text-white flex items-center justify-between cursor-pointer font-medium"
               >
-                <span>Delete All Downloads</span>
+                <span>{t('toolbar.deleteAllMenu')}</span>
               </button>
             </div>
           }
@@ -375,16 +377,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Options */}
         <ToolbarButton
           onClick={onOpenOptions}
-          title="Options & Preferences (Ctrl+,)"
-          label="Options"
+          title={t('toolbar.options')}
+          label={t('toolbar.options')}
           icon={<Icon3DOptions className="w-9 h-9 drop-shadow-xs" />}
         />
 
         {/* Scheduler */}
         <ToolbarButton
           onClick={onOpenScheduler}
-          title="Download Scheduler & Queue"
-          label="Scheduler"
+          title={t('toolbar.scheduler')}
+          label={t('toolbar.scheduler')}
           icon={<Icon3DScheduler className="w-9 h-9 drop-shadow-xs" />}
         />
 
@@ -395,8 +397,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onToggleDropdown={() => toggleDropdown('startQueue')}
           isOpen={openDropdown === 'startQueue'}
           disabled={!onStartQueue || isMainQueueRunning}
-          title="Start the main download queue (chevron: pick a queue)"
-          label="Start Qu..."
+          title={t('toolbar.startQueue')}
+          label={t('toolbar.startQueue')}
           icon={<Icon3DResume className="w-9 h-9 drop-shadow-xs" />}
           dropdownMenu={queueMenuItems('start')}
         />
@@ -408,8 +410,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onToggleDropdown={() => toggleDropdown('stopQueue')}
           isOpen={openDropdown === 'stopQueue'}
           disabled={!onStopQueue || !isMainQueueRunning}
-          title="Stop the main download queue (chevron: pick a queue)"
-          label="Stop Qu..."
+          title={t('toolbar.stopQueue')}
+          label={t('toolbar.stopQueue')}
           icon={<Icon3DStopAll className="w-9 h-9 drop-shadow-xs" />}
           dropdownMenu={queueMenuItems('stop')}
         />
@@ -417,16 +419,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         {/* Batch */}
         <ToolbarButton
           onClick={onAddBatch}
-          title="Batch Pattern Download (Ctrl+B)"
-          label="Batch"
+          title={t('toolbar.batch')}
+          label={t('toolbar.batch')}
           icon={<Icon3DBatch className="w-9 h-9 drop-shadow-xs" />}
         />
 
         {/* Site Grabber */}
         <ToolbarButton
           onClick={onOpenSiteGrabber}
-          title="Site Grabber Wizard (Ctrl+G)"
-          label="Grabber"
+          title={t('toolbar.grabber')}
+          label={t('toolbar.grabber')}
           icon={<Icon3DGrabber className="w-9 h-9 drop-shadow-xs" />}
         />
       </div>
@@ -439,7 +441,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <input
             type="text"
             ref={searchInputRef}
-            placeholder="Search (Ctrl+F)"
+            placeholder={t('toolbar.search')}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full h-full pl-2.5 pr-7 text-[12px] bg-transparent border-0 outline-none text-neutral-800 placeholder:text-neutral-500 placeholder:italic font-sans"

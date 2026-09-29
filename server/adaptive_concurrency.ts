@@ -28,6 +28,7 @@ export class AdaptiveConcurrencyController {
   private prevThroughputBps: number = 0;
   private consecutiveDegradations: number = 0;
   private consecutiveImprovements: number = 0;
+  private consecutiveStarvations: number = 0;
 
   constructor(options?: AdaptiveConcurrencyOptions) {
     const min = isNaN(options?.minWorkers ?? 2) ? 2 : (options?.minWorkers ?? 2);
@@ -114,6 +115,33 @@ export class AdaptiveConcurrencyController {
       this.currentWorkers = Math.max(this.minWorkers, this.currentWorkers - 1);
       this.consecutiveImprovements = 0;
       return 'scale_down';
+    }
+
+    // 2.5 Per-worker starvation collapse: many workers each drawing a trickle
+    // means the host caps per-CLIENT bandwidth (not per-connection) — extra
+    // streams there only add handshake and slow-start overhead. Halve fast
+    // instead of walking down one worker per cooldown. Two guards keep this
+    // away from healthy transfers: the aggregate must be low in absolute
+    // terms (fast links always clear it) and the starvation must persist for
+    // two evaluations (TCP slow-start ramp is transient).
+    const throughputNow = this.getRollingThroughputBps();
+    const perWorkerBps = throughputNow / Math.max(1, p.activeWorkersCount || this.currentWorkers);
+    if (
+      throughputNow > 0 &&
+      throughputNow < 4 * 1024 * 1024 &&
+      this.currentWorkers >= 8 &&
+      perWorkerBps < 128 * 1024
+    ) {
+      this.consecutiveStarvations++;
+      if (this.consecutiveStarvations >= 2) {
+        this.lastAdjustmentTime = now;
+        this.currentWorkers = Math.max(this.minWorkers, Math.floor(this.currentWorkers / 2));
+        this.consecutiveStarvations = 0;
+        this.consecutiveImprovements = 0;
+        return 'scale_down';
+      }
+    } else {
+      this.consecutiveStarvations = 0;
     }
 
     // 3. Near-Completion Hold: If remaining bytes are small, hold or scale down to prevent thrashing

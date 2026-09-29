@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { APP_NAME } from '../config/appInfo';
+import { NDM_LANGUAGES, changeLanguage } from '../i18n';
 import {
   AppearanceSettings,
   IconStyle,
@@ -67,7 +68,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // Appearance (View menu quick controls): live-applied via
   // changeAppearance, no Settings trip needed.
@@ -118,6 +119,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     <div className="relative" onMouseEnter={() => setOpenSubmenu(id)}>
       <button
         type="button"
+        onClick={() => setOpenSubmenu(openSubmenu === id ? null : id)}
         className="w-full text-left flex items-center py-1 select-none text-[12px] text-neutral-800 hover:bg-brand-tintHover/40 hover:text-brand"
       >
         <span className="w-6" />
@@ -269,6 +271,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 label: o.label,
                 checked: appearance.iconStyle === (o.value as IconStyle),
                 onClick: () => patchAppearance({ iconStyle: o.value }),
+              }))
+            )}
+            {renderSubmenu(
+              t('view.language'),
+              'language',
+              NDM_LANGUAGES.map((l) => ({
+                label: l.nativeName,
+                checked: i18n.language.slice(0, 2) === l.code,
+                onClick: () => changeLanguage(l.code),
               }))
             )}
             <div className="h-[1px] bg-neutral-200 my-1 mx-2" />

@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import { EventEmitter } from 'events';
 import { SoundSettings } from './event_sounds';
-import { encryptSecret, decryptSecret } from './secret_cipher';
 
 export interface CategoryRule {
   id: string;
@@ -12,7 +11,7 @@ export interface CategoryRule {
   defaultFolder: string;
 }
 
-export interface NDMSettings {
+export interface NogadexSettings {
   general: {
     startupWithWindows: boolean;
     minimizeToTray: boolean;
@@ -144,7 +143,7 @@ export interface NDMSettings {
   volumeLedger: Array<{ at: number; bytes: number }>;
 }
 
-export const DEFAULT_NDM_SETTINGS: NDMSettings = {
+export const DEFAULT_NOGADEX_SETTINGS: NogadexSettings = {
   general: {
     startupWithWindows: false,
     minimizeToTray: true,
@@ -155,7 +154,7 @@ export const DEFAULT_NDM_SETTINGS: NDMSettings = {
   },
   downloads: {
     defaultDownloadFolder: path.join(os.homedir(), 'Downloads'),
-    tempDownloadFolder: path.join(os.tmpdir(), 'NDMDownloads'),
+    tempDownloadFolder: path.join(os.tmpdir(), 'NogadexDownloads'),
     maxConcurrentDownloads: 0, // 0 = unlimited (default)
     defaultConnections: 32,
     autoStartDownloads: true,
@@ -241,25 +240,17 @@ export const DEFAULT_NDM_SETTINGS: NDMSettings = {
 
 export class SettingsManager extends EventEmitter {
   private configPath: string;
-  private settings: NDMSettings;
+  private settings: NogadexSettings;
 
   constructor(customPath?: string) {
     super();
     if (customPath) {
       this.configPath = customPath;
     } else {
-      const configDir = path.join(os.homedir(), '.ndm');
-      const legacyDir = path.join(os.homedir(), '.nogadex');
+      const configDir = path.join(os.homedir(), '.nogadex');
       if (!fs.existsSync(configDir)) {
         try {
           fs.mkdirSync(configDir, { recursive: true });
-          // One-time migration: adopt settings from the legacy ~/.nogadex dir
-          // so existing users keep their configuration. The old dir is left
-          // untouched on disk.
-          const legacySettings = path.join(legacyDir, 'settings.json');
-          if (fs.existsSync(legacySettings)) {
-            fs.copyFileSync(legacySettings, path.join(configDir, 'settings.json'));
-          }
         } catch {}
       }
       this.configPath = path.join(configDir, 'settings.json');
@@ -267,11 +258,11 @@ export class SettingsManager extends EventEmitter {
     this.settings = this.load();
   }
 
-  public getSettings(): NDMSettings {
+  public getSettings(): NogadexSettings {
     return JSON.parse(JSON.stringify(this.settings));
   }
 
-  public updateSettings(partial: any): NDMSettings {
+  public updateSettings(partial: any): NogadexSettings {
     const flatGeneral: any = {};
     if (partial.doubleClickAction !== undefined) flatGeneral.doubleClickAction = partial.doubleClickAction;
 
@@ -291,7 +282,7 @@ export class SettingsManager extends EventEmitter {
       flatNetwork.globalSpeedLimitKB = Math.round(partial.speedLimitBps / 1024);
     }
 
-    const merged: NDMSettings = {
+    const merged: NogadexSettings = {
       general: { ...this.settings.general, ...(partial.general || {}), ...flatGeneral },
       downloads: { ...this.settings.downloads, ...(partial.downloads || {}), ...flatDownloads },
       network: { ...this.settings.network, ...(partial.network || {}), ...flatNetwork },
@@ -346,29 +337,29 @@ export class SettingsManager extends EventEmitter {
     return this.getSettings();
   }
 
-  public resetDefaults(): NDMSettings {
-    this.settings = JSON.parse(JSON.stringify(DEFAULT_NDM_SETTINGS));
+  public resetDefaults(): NogadexSettings {
+    this.settings = JSON.parse(JSON.stringify(DEFAULT_NOGADEX_SETTINGS));
     this.save();
     this.emit('change', this.getSettings());
     return this.getSettings();
   }
 
-  private load(): NDMSettings {
+  private load(): NogadexSettings {
     try {
       if (fs.existsSync(this.configPath)) {
         const raw = fs.readFileSync(this.configPath, 'utf8');
         const parsed = JSON.parse(raw);
-        const loaded: NDMSettings = {
-          general: { ...DEFAULT_NDM_SETTINGS.general, ...(parsed.general || {}) },
-          downloads: { ...DEFAULT_NDM_SETTINGS.downloads, ...(parsed.downloads || {}) },
-          network: { ...DEFAULT_NDM_SETTINGS.network, ...(parsed.network || {}) },
-          notifications: { ...DEFAULT_NDM_SETTINGS.notifications, ...(parsed.notifications || {}) },
-          sounds: { ...DEFAULT_NDM_SETTINGS.sounds, ...(parsed.sounds || {}) },
+        const loaded: NogadexSettings = {
+          general: { ...DEFAULT_NOGADEX_SETTINGS.general, ...(parsed.general || {}) },
+          downloads: { ...DEFAULT_NOGADEX_SETTINGS.downloads, ...(parsed.downloads || {}) },
+          network: { ...DEFAULT_NOGADEX_SETTINGS.network, ...(parsed.network || {}) },
+          notifications: { ...DEFAULT_NOGADEX_SETTINGS.notifications, ...(parsed.notifications || {}) },
+          sounds: { ...DEFAULT_NOGADEX_SETTINGS.sounds, ...(parsed.sounds || {}) },
           browser: {
-            ...DEFAULT_NDM_SETTINGS.browser,
+            ...DEFAULT_NOGADEX_SETTINGS.browser,
             ...(parsed.browser || {}),
             contextMenu: {
-              ...DEFAULT_NDM_SETTINGS.browser.contextMenu,
+              ...DEFAULT_NOGADEX_SETTINGS.browser.contextMenu,
               ...(parsed.browser?.contextMenu || {}),
             },
             forceKeys: Array.isArray(parsed.browser?.forceKeys) ? parsed.browser.forceKeys : [],
@@ -376,37 +367,27 @@ export class SettingsManager extends EventEmitter {
             excludedExtensions: Array.isArray(parsed.browser?.excludedExtensions) ? parsed.browser.excludedExtensions : [],
             excludedDomains: Array.isArray(parsed.browser?.excludedDomains) ? parsed.browser.excludedDomains : [],
           },
-          clipboard: { ...DEFAULT_NDM_SETTINGS.clipboard, ...(parsed.clipboard || {}) },
+          clipboard: { ...DEFAULT_NOGADEX_SETTINGS.clipboard, ...(parsed.clipboard || {}) },
           autoCategorize: parsed.autoCategorize !== undefined ? Boolean(parsed.autoCategorize) : true,
           rememberLastFolder: parsed.rememberLastFolder !== undefined ? Boolean(parsed.rememberLastFolder) : true,
-          proxy: { ...DEFAULT_NDM_SETTINGS.proxy, ...(parsed.proxy || {}) },
+          proxy: { ...DEFAULT_NOGADEX_SETTINGS.proxy, ...(parsed.proxy || {}) },
           siteCredentials: Array.isArray(parsed.siteCredentials) ? parsed.siteCredentials : [],
-          categories: parsed.categories && Array.isArray(parsed.categories) ? parsed.categories : DEFAULT_NDM_SETTINGS.categories,
+          categories: parsed.categories && Array.isArray(parsed.categories) ? parsed.categories : DEFAULT_NOGADEX_SETTINGS.categories,
           queues: Array.isArray(parsed.queues) ? parsed.queues : [],
-          volumeLimits: { ...DEFAULT_NDM_SETTINGS.volumeLimits, ...(parsed.volumeLimits || {}) },
+          volumeLimits: { ...DEFAULT_NOGADEX_SETTINGS.volumeLimits, ...(parsed.volumeLimits || {}) },
           volumeLedger: Array.isArray(parsed.volumeLedger) ? parsed.volumeLedger : [],
         };
         // Sanitize stale mock path 'C:\Downloads' to actual Windows user Downloads folder
         if (loaded.downloads.defaultDownloadFolder === 'C:\\Downloads' || !loaded.downloads.defaultDownloadFolder) {
           loaded.downloads.defaultDownloadFolder = path.join(os.homedir(), 'Downloads');
         }
-        loaded.sounds = { ...DEFAULT_NDM_SETTINGS.sounds, ...(parsed.sounds || {}) };
-        // Secret material is ciphertext-at-rest when a master key is provided
-        // (NDM_SECRET_KEY from the Electron host). Legacy plaintext values load
-        // unchanged and get re-encrypted on the next save.
-        if (loaded.proxy?.password) loaded.proxy.password = decryptSecret(loaded.proxy.password);
-        loaded.siteCredentials = (loaded.siteCredentials || []).map((c) => ({
-          ...c,
-          password: c.password ? decryptSecret(c.password) : c.password,
-          token: c.token ? decryptSecret(c.token) : c.token,
-          cookies: c.cookies ? decryptSecret(c.cookies) : c.cookies,
-        }));
+        loaded.sounds = { ...DEFAULT_NOGADEX_SETTINGS.sounds, ...(parsed.sounds || {}) };
         return loaded;
       }
     } catch (err) {
       console.warn(`Failed to read settings from ${this.configPath}, falling back to defaults:`, err);
     }
-    return JSON.parse(JSON.stringify(DEFAULT_NDM_SETTINGS));
+    return JSON.parse(JSON.stringify(DEFAULT_NOGADEX_SETTINGS));
   }
 
   private save(): void {
@@ -416,16 +397,7 @@ export class SettingsManager extends EventEmitter {
         fs.mkdirSync(dir, { recursive: true });
       }
       const tmpPath = `${this.configPath}.tmp.${Date.now()}`;
-      // Encrypt secret fields on the way out; the in-memory copy stays plaintext.
-      const serializable = JSON.parse(JSON.stringify(this.settings));
-      if (serializable.proxy?.password) serializable.proxy.password = encryptSecret(serializable.proxy.password);
-      serializable.siteCredentials = (serializable.siteCredentials || []).map((c: any) => ({
-        ...c,
-        password: c.password ? encryptSecret(c.password) : c.password,
-        token: c.token ? encryptSecret(c.token) : c.token,
-        cookies: c.cookies ? encryptSecret(c.cookies) : c.cookies,
-      }));
-      fs.writeFileSync(tmpPath, JSON.stringify(serializable, null, 2), 'utf8');
+      fs.writeFileSync(tmpPath, JSON.stringify(this.settings, null, 2), 'utf8');
       fs.renameSync(tmpPath, this.configPath);
     } catch (err) {
       console.error(`Failed to atomically save settings to ${this.configPath}:`, err);

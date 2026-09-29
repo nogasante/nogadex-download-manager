@@ -1,4 +1,4 @@
-// Tiny local file server for testing NDM downloads.
+// Tiny local file server for testing Nogadex downloads.
 // Serves deterministic binary files (all well under 50MB) with Range support.
 // Throttles to ~96 KB/s per connection so mid-flight pause/resume is observable.
 import http from 'http';

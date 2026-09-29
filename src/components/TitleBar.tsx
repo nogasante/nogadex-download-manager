@@ -1,9 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Minus, Square, X } from 'lucide-react';
 import { APP_NAME } from '../config/appInfo';
 import ndmLogo from '../assets/logo.png';
 
 export const TitleBar: React.FC = () => {
+  const { t } = useTranslation();
   const handleMinimize = () => {
     if ((window as any).electronAPI?.minimize) (window as any).electronAPI.minimize();
   };
@@ -42,7 +44,7 @@ export const TitleBar: React.FC = () => {
         <button
           onClick={handleMinimize}
           className="w-11 h-full flex items-center justify-center hover:bg-neutral-100 text-neutral-600 transition-colors"
-          title="Minimize"
+          title={t('titlebar.minimize')}
         >
           <Minus className="w-3.5 h-3.5" />
         </button>
@@ -50,7 +52,7 @@ export const TitleBar: React.FC = () => {
         <button
           onClick={handleMaximize}
           className="w-11 h-full flex items-center justify-center hover:bg-neutral-100 text-neutral-600 transition-colors"
-          title="Maximize"
+          title={t('titlebar.maximize')}
         >
           <Square className="w-3 h-3 stroke-[1.5]" />
         </button>
@@ -58,7 +60,7 @@ export const TitleBar: React.FC = () => {
         <button
           onClick={handleClose}
           className="w-11 h-full flex items-center justify-center hover:bg-danger hover:text-white text-neutral-600 transition-colors"
-          title="Close"
+          title={t('titlebar.close')}
         >
           <X className="w-3.5 h-3.5" />
         </button>

@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DownloadItem } from '../types/download';
 import { useOutsideClick } from '../hooks/useOutsideClick';
 import { useEscapeKey } from '../hooks/useEscapeKey';
@@ -38,6 +39,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
   onMoveToQueue,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
   const isDownloading = isDownloadActive(download.status);
   const isPaused = isDownloadResumable(download.status);
 
@@ -67,7 +69,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
           onClick={() => { onResume(download.id); onClose(); }}
           className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
         >
-          <span className="font-semibold">Resume Download</span>
+          <span className="font-semibold">{t('contextmenu.resumeDownload')}</span>
           <span className="text-[11px] opacity-70">Space</span>
         </button>
       )}
@@ -78,7 +80,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
           onClick={() => { onPause(download.id); onClose(); }}
           className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
         >
-          <span>Pause Download</span>
+          <span>{t('contextmenu.pauseDownload')}</span>
           <span className="text-[11px] opacity-70">Space</span>
         </button>
       )}
@@ -89,7 +91,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
         onClick={() => { onOpenFile(download.id); onClose(); }}
         className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none font-medium"
       >
-        <span>Open</span>
+        <span>{t('contextmenu.open')}</span>
         <span className="text-[11px] opacity-70">Enter</span>
       </button>
 
@@ -98,7 +100,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
         onClick={() => { onOpenFolder(download.id); onClose(); }}
         className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
       >
-        <span>Open Containing Folder</span>
+        <span>{t('contextmenu.openContainingFolder')}</span>
       </button>
 
       <div className="my-1 border-t border-neutral-200" />
@@ -109,7 +111,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
         onClick={handleCopyUrl}
         className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
       >
-        <span>Copy Address to Clipboard</span>
+        <span>{t('contextmenu.copyAddress')}</span>
         <span className="text-[11px] opacity-70">Ctrl+C</span>
       </button>
 
@@ -119,7 +121,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
         onClick={() => { onResume(download.id); onClose(); }}
         className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
       >
-        <span>Redownload</span>
+        <span>{t('contextmenu.redownload')}</span>
       </button>
 
       {/* Refresh Download Address */}
@@ -133,14 +135,14 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
         }}
         className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
       >
-        <span>Refresh Download Address</span>
+        <span>{t('contextmenu.refreshAddress')}</span>
       </button>
 
       {/* Move to queue: only when queues exist and a handler is wired. */}
       {queues.length > 0 && onMoveToQueue && (
         <>
           <div className="my-1 border-t border-neutral-200" />
-          <div className="px-4 py-1 text-[10.5px] uppercase tracking-wide text-neutral-400">Move to queue</div>
+          <div className="px-4 py-1 text-[10.5px] uppercase tracking-wide text-neutral-400">{t('contextmenu.moveToQueue')}</div>
           {queues.map((q) => (
             <button
               key={q.id}
@@ -149,7 +151,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
               className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
             >
               <span>{q.name}</span>
-              {currentQueueId === q.id && <span className="text-[11px] opacity-70">current</span>}
+              {currentQueueId === q.id && <span className="text-[11px] opacity-70">{t('contextmenu.current')}</span>}
             </button>
           ))}
         </>
@@ -163,7 +165,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
         onClick={() => { onDelete(download.id); onClose(); }}
         className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
       >
-        <span>Delete Download</span>
+        <span>{t('contextmenu.deleteDownload')}</span>
         <span className="text-[11px] opacity-70">Del</span>
       </button>
 
@@ -175,7 +177,7 @@ export const DownloadContextMenu: React.FC<DownloadContextMenuProps> = ({
         onClick={() => { onOpenProperties(download); onClose(); }}
         className="w-full px-4 py-1 flex items-center justify-between hover:bg-brand-glow hover:text-white text-left transition-none"
       >
-        <span>Properties</span>
+        <span>{t('contextmenu.properties')}</span>
         <span className="text-[11px] opacity-70">Alt+Enter</span>
       </button>
     </div>

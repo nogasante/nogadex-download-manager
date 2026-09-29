@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { NewDownloadPayload } from '../types/download';
 import { WindowsDialog } from './common/WindowsDialog';
 import { MessageBoxDialog, MessageBoxOptions } from './MessageBoxDialog';
@@ -31,6 +32,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
   isStandalone = false,
   initialUrl,
 }) => {
+  const { t } = useTranslation();
   const [url, setUrl] = useState(initialUrl || '');
   const [filename, setFilename] = useState('');
   // Inline per-site authorization (saved to the engine's site
@@ -238,7 +240,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
         onClick={handleOpenAdvanced}
         className="min-w-[80px]"
       >
-        More...
+        {t('newDownload.more')}
       </WinButton>
 
       <div className="flex items-center gap-2">
@@ -248,7 +250,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
           disabled={!url.trim()}
           className="min-w-[105px]"
         >
-          Download Later
+          {t('newDownload.downloadLater')}
         </WinButton>
         <WinButton
           variant="primary"
@@ -256,7 +258,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
           disabled={!url.trim()}
           className="min-w-[105px]"
         >
-          Download Now
+          {t('newDownload.downloadNow')}
         </WinButton>
       </div>
     </div>
@@ -267,7 +269,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
       <WindowsDialog
         isOpen={isOpen}
         onClose={onClose}
-        title="New Download"
+        title={t('newDownload.title')}
         width="w-[520px]"
         footer={footer}
         isStandalone={isStandalone}
@@ -276,7 +278,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
         <div className="space-y-3.5 font-sans text-[12px] p-0.5">
           {/* Address Row */}
           <div className="grid grid-cols-[65px_1fr] items-center gap-2">
-            <label className="text-neutral-400 text-[12px] font-normal">Address</label>
+            <label className="text-neutral-400 text-[12px] font-normal">{t('newDownload.address')}</label>
             <WinInput
               type="text"
               autoFocus
@@ -292,7 +294,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
 
           {/* File Row */}
           <div className="grid grid-cols-[65px_1fr] items-center gap-2">
-            <label className="text-neutral-400 text-[12px] font-normal">File</label>
+            <label className="text-neutral-400 text-[12px] font-normal">{t('newDownload.file')}</label>
             <div className="flex items-center gap-1.5 w-full">
               <WinInput
                 type="text"
@@ -301,12 +303,12 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
                   setFilename(e.target.value);
                   userEditedFilenameRef.current = true;
                 }}
-                placeholder={isProbing ? 'Querying server filename...' : 'Filename'}
+                placeholder={isProbing ? t('newDownload.querying') : t('newDownload.filenamePlaceholder')}
                 className="flex-1 text-[12px] h-[28px]"
               />
               <div 
                 className="w-7 h-7 flex items-center justify-center bg-neutral-800 border border-neutral-700 rounded-[3px] text-neutral-400 shrink-0"
-                title={filename ? `Target file: ${filename}` : 'File target'}
+                title={filename ? t('newDownload.targetFile', { name: filename }) : t('newDownload.fileTarget')}
               >
                 <FileIcon filename={filename || 'file.bin'} className="w-4 h-4" />
               </div>
@@ -315,7 +317,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
 
           {/* Streams Row */}
           <div className="grid grid-cols-[65px_1fr] items-center gap-2">
-            <label className="text-neutral-400 text-[12px] font-normal" title="Parallel connections used for this download. Auto lets the app pick the optimal count based on file size and server support.">Streams</label>
+            <label className="text-neutral-400 text-[12px] font-normal" title={t('newDownload.streamsHint')}>{t('newDownload.streams')}</label>
             <div className="flex items-center gap-2 w-full">
               {isAutoStreams ? (
                 <>
@@ -359,7 +361,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
           {/* Duplicate link policy: what to do if this URL/file
               already exists. 'ask' = engine default (safe single-row policy). */}
           <div className="grid grid-cols-[65px_1fr] items-center gap-2">
-            <label className="text-neutral-400 text-[12px] font-normal">If exists</label>
+            <label className="text-neutral-400 text-[12px] font-normal">{t('newDownload.ifExists')}</label>
             <WinSelect
               value={duplicatePolicy}
               onChange={(e) => setDuplicatePolicy(e.target.value as 'ask' | 'overwrite' | 'skip' | 'rename')}
@@ -374,12 +376,12 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
 
           {/* Custom User-Agent: empty = engine default UA. */}
           <div className="grid grid-cols-[65px_1fr] items-center gap-2">
-            <label className="text-neutral-400 text-[12px] font-normal">User-Agent</label>
+            <label className="text-neutral-400 text-[12px] font-normal">{t('newDownload.userAgent')}</label>
             <WinInput
               type="text"
               value={customUserAgent}
               onChange={(e) => setCustomUserAgent(e.target.value)}
-              placeholder="(default), or a custom UA for this download only"
+              placeholder={t('newDownload.uaPlaceholder')}
               className="w-full font-mono text-[11px] h-[28px]"
             />
           </div>
@@ -395,14 +397,14 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
                   setUseAuth(v);
                   if (!v) { setAuthLogin(''); setAuthPassword(''); }
                 }}
-                label="Use authorization"
+                label={t('newDownload.useAuth')}
                 className="text-[12px]"
               />}
             className={useAuth ? '' : 'opacity-70'}
           >
             <div className="grid grid-cols-[1fr_1fr] gap-2">
               <div className="grid grid-cols-[42px_1fr] items-center gap-1.5">
-                <label className="text-neutral-500 text-[11.5px] text-right">Login</label>
+                <label className="text-neutral-500 text-[11.5px] text-right">{t('newDownload.login')}</label>
                 <WinInput
                   type="text"
                   value={authLogin}
@@ -413,7 +415,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
                 />
               </div>
               <div className="grid grid-cols-[58px_1fr] items-center gap-1.5">
-                <label className="text-neutral-500 text-[11.5px] text-right">Password</label>
+                <label className="text-neutral-500 text-[11.5px] text-right">{t('newDownload.password')}</label>
                 <WinInput
                   type="password"
                   value={authPassword}
@@ -428,7 +430,7 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
 
           {/* Save In Row */}
           <div className="grid grid-cols-[65px_1fr] items-center gap-2">
-            <label className="text-neutral-400 text-[12px] font-normal">Save in</label>
+            <label className="text-neutral-400 text-[12px] font-normal">{t('newDownload.saveIn')}</label>
             <div className="flex items-center gap-1.5 w-full">
               <WinSelect
                 value={saveCategoryMode}
@@ -443,19 +445,19 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
                 className="flex-1 text-[12px] h-[28px]"
               >
                 <option value="auto">
-                  Automatically select based on file type {detectedCategory ? `(${detectedCategory})` : ''}
+                  {t('newDownload.autoCategory', { cat: detectedCategory ? `(${detectedCategory})` : '' })}
                 </option>
-                <option value="compressed">Compressed folder</option>
-                <option value="programs">Programs folder</option>
-                <option value="video">Video folder</option>
-                <option value="music">Music folder</option>
-                <option value="documents">Documents folder</option>
+                <option value="compressed">{t('newDownload.folderCompressed')}</option>
+                <option value="programs">{t('newDownload.folderPrograms')}</option>
+                <option value="video">{t('newDownload.folderVideo')}</option>
+                <option value="music">{t('newDownload.folderMusic')}</option>
+                <option value="documents">{t('newDownload.folderDocuments')}</option>
               </WinSelect>
               <WinButton
                 variant="secondary"
                 onClick={handleBrowse}
                 className="w-7 h-[28px] px-0 flex items-center justify-center font-bold text-[13px] shrink-0"
-                title="Browse custom folder..."
+                title={t('newDownload.browseFolder')}
               >
                 ...
               </WinButton>
@@ -472,20 +474,20 @@ export const NewDownloadDialog: React.FC<NewDownloadDialogProps> = ({
                     setLocalMsgBox({
                       title: APP_NAME,
                       type: 'info',
-                      message: `Downloads from ${host} can be configured in Options -> Site Logins & Rules.`,
+                      message: t('newDownload.siteLoginHint', { host }),
                     });
                   } catch {}
                 }
               }}
               className="text-brand-bright hover:underline cursor-pointer"
             >
-              Do not capture download from this address
+              {t('newDownload.dontCapture')}
             </span>
 
             {probedInfo && (
               <span className="text-neutral-400 font-mono text-[10.5px]">
                 {probedInfo.size ? formatSize(probedInfo.size) : ''}
-                {probedInfo.resumable !== undefined ? ` • Resume: ${probedInfo.resumable ? 'Yes' : 'No'}` : ''}
+                {probedInfo.resumable !== undefined ? ` • ${t('newDownload.resume')}: ${probedInfo.resumable ? t('common.yes') : t('common.no')}` : ''}
               </span>
             )}
           </div>
