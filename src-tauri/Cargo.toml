@@ -1,0 +1,37 @@
+[package]
+name = "ndm"
+version = "1.0.5"
+description = "NDM - Nogadex Download Manager"
+authors = ["Nogadex Systems <nanasante2000@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/nogasante/nogadex-download-manager"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "ndm_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.0", features = [] }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.12.0", features = ["devtools", "tray-icon"] }
+tauri-plugin-log = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-deep-link = "2"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+dirs = "5"
+urlencoding = "2"
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.59", features = ["Win32_UI_Shell", "Win32_System_Com", "Win32_Foundation"] }

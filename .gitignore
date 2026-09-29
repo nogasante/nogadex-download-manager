@@ -13,3 +13,8 @@ scratch
 release-build/
 server/tmp_*.ts
 server/_tmp_*.ts
+
+# Tauri build artifacts
+src-tauri/target/
+src-tauri/sidecar/*.exe
+src-tauri/gen/
