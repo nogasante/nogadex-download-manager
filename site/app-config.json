@@ -1,7 +1,7 @@
 {
   "configVersion": 1,
   "site": {
-    "baseUrl": ""
+    "baseUrl": "https://ndmanager.vercel.app"
   },
   "branding": {
     "appName": "Nogadex Download Manager",
