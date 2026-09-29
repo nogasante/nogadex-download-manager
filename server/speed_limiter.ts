@@ -5,6 +5,10 @@
  */
 
 export class SpeedLimiter {
+  /** Upper bound on a single consume() wait. Keeps socket pauses short so
+   *  inactivity detectors and server-side timeouts are never tripped. */
+  private static readonly MAX_WAIT_MS = 1500;
+
   private maxBytesPerSecond: number;
   private tokens: number;
   private lastRefillTime: number;
@@ -29,7 +33,8 @@ export class SpeedLimiter {
   }
 
   /**
-   * Refills tokens based on elapsed time.
+   * Refills tokens based on elapsed time. The balance may be negative (debt
+   * from bytes consumed ahead of schedule); refill always pays debt first.
    */
   private refill(): void {
     const now = Date.now();
@@ -43,29 +48,25 @@ export class SpeedLimiter {
   }
 
   /**
-   * Consumes bandwidth tokens. Returns how many milliseconds caller should sleep if throttled.
+   * Consumes bandwidth tokens. Returns how many milliseconds the caller must
+   * delay before writing the bytes (0 = write immediately). The caller is
+   * responsible for applying the delay — consume() never sleeps.
+   *
+   * The balance may go negative (debt) so concurrent streams are charged
+   * exactly — every byte is accounted and the long-run aggregate rate equals
+   * the limit. The returned wait is capped at MAX_WAIT_MS so no single caller
+   * ever stalls a socket for long enough to trip inactivity/timeouts upstream;
+   * unrepaid debt is carried over and throttles subsequent consumes instead.
    */
   public async consume(bytes: number): Promise<number> {
     if (this.maxBytesPerSecond <= 0) return 0;
 
     this.refill();
+    this.tokens -= bytes;
 
-    if (this.tokens >= bytes) {
-      this.tokens -= bytes;
-      return 0;
-    }
+    if (this.tokens >= 0) return 0;
 
-    // Need to wait for tokens to refill
-    const needed = bytes - this.tokens;
-    const waitMs = Math.ceil((needed / this.maxBytesPerSecond) * 1000);
-
-    // Consume what we can
-    this.tokens = 0;
-
-    if (waitMs > 0) {
-      await new Promise((r) => setTimeout(r, Math.min(waitMs, 1000)));
-    }
-
-    return waitMs;
+    const exactWaitMs = Math.ceil((-this.tokens / this.maxBytesPerSecond) * 1000);
+    return Math.min(exactWaitMs, SpeedLimiter.MAX_WAIT_MS);
   }
 }

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Features — NDM</title>
+<meta name="description" content="Explore NDM's download features, including multi-connection downloads, resume support, file verification, scheduling, and batch downloads.">
+<meta name="theme-color" content="#005a9e">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" href="assets/favicon.ico">
+<script>/* theme before first paint — no flash */
+(function(){var s=localStorage.getItem('ndm-theme');document.documentElement.style.colorScheme=(s==='light'||s==='dark')?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');})();</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="site-nav"></header>
+
+<main>
+  <section>
+    <div class="wrap">
+
+      <!-- ============ live mini-NDM demo window ============ -->
+      <div class="demo-window" id="demo">
+        <div class="demo-title">
+          <span>Nogadex Download Manager</span>
+          <span class="demo-hint">Interactive demo. Try the controls.</span>
+        </div>
+
+        <div class="demo-body">
+          <div class="demo-list" id="demo-list"><!-- rows injected by site.js --></div>
+
+          <div class="demo-actions">
+            <button class="demo-btn" type="button" data-demo="pause" aria-label="Pause all downloads">Pause all</button>
+            <button class="demo-btn" type="button" data-demo="resume" aria-label="Resume all downloads">Resume all</button>
+            <button class="demo-btn demo-btn-danger" type="button" data-demo="cut" aria-label="Cut the connection">Cut connection</button>
+            <button class="demo-btn" type="button" data-demo="reset" aria-label="Restart the demo">Restart</button>
+          </div>
+
+          <p class="demo-note" id="demo-note">Two files are downloading over multiple connections. Cut the connection to see how NDM resumes the download.</p>
+        </div>
+      </div>
+
+      <!-- ============ expandable feature cards ============ -->
+      <div class="feat-grid">
+
+        <div class="feat-card" id="fc-parallel">
+          <button class="feat-card-head" type="button" aria-expanded="false">
+            <svg class="f-ico f-ico-blue" viewBox="0 0 48 48" aria-hidden="true">
+              <defs><linearGradient id="g-par" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#7db9f0"/><stop offset="1" stop-color="#0d5a9c"/></linearGradient></defs>
+              <path d="M8 8 V40 M40 8 V40" stroke="#5f7286" stroke-width="3" stroke-linecap="round"/>
+              <rect x="4.5" y="6" width="7" height="16" rx="1.5" fill="url(#g-par)"/>
+              <rect x="20.5" y="2" width="7" height="12" rx="1.5" fill="url(#g-par)"/>
+              <rect x="36.5" y="7" width="7" height="15" rx="1.5" fill="url(#g-par)"/>
+            </svg>
+            <span class="feat-card-title">Parallel downloads</span>
+            <span class="feat-card-chev" aria-hidden="true">›</span>
+          </button>
+          <div class="feat-card-body">
+            <p>Large files can use up to <b>32 connections at the same time</b>. NDM combines the downloaded parts into the original file when the transfer is complete. Smaller downloads can use fewer connections.</p>
+            <div class="f-demo f-demo-parallel" aria-hidden="true">
+              <div class="f-bar"><i class="f-fill f-fill-1conn"></i></div>
+              <span class="f-lab">1 connection</span>
+              <div class="f-bar"><i class="f-fill f-fill-32conn"></i></div>
+              <span class="f-lab">32 connections</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat-card" id="fc-resume">
+          <button class="feat-card-head" type="button" aria-expanded="false">
+            <svg class="f-ico f-ico-green" viewBox="0 0 48 48" aria-hidden="true">
+              <defs><linearGradient id="g-res" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#8ef0a4"/><stop offset="1" stop-color="#157a37"/></linearGradient></defs>
+              <path d="M24 6 V26" stroke="url(#g-res)" stroke-width="6" stroke-linecap="round"/>
+              <path d="M13 20 L24 31 L35 20" fill="none" stroke="url(#g-res)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 36 A16 8 0 0 0 40 36" fill="none" stroke="#5f7286" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+            <span class="feat-card-title">Resume from where you stopped</span>
+            <span class="feat-card-chev" aria-hidden="true">›</span>
+          </button>
+          <div class="feat-card-body">
+            <p>NDM saves download progress so interrupted transfers can continue after <b>crashes, restarts, or lost connections</b>, without downloading completed parts again.</p>
+            <div class="f-demo f-demo-resume" aria-hidden="true">
+              <div class="f-bar f-bar-resume"><i class="f-fill f-fill-resume"></i><u class="f-seg f-seg-a"></u><u class="f-seg f-seg-b"></u></div>
+              <span class="f-lab" id="f-resume-lab">Part 1 and Part 2 saved, picking up from byte 61%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat-card" id="fc-verify">
+          <button class="feat-card-head" type="button" aria-expanded="false">
+            <svg class="f-ico f-ico-teal" viewBox="0 0 48 48" aria-hidden="true">
+              <defs><linearGradient id="g-ver" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#7fe0d8"/><stop offset="1" stop-color="#0b7268"/></linearGradient></defs>
+              <path d="M24 4 L41 10 V24 C41 33 34 40.5 24 44 C14 40.5 7 33 7 24 V10 Z"
+                    fill="url(#g-ver)" stroke="#0a4f47" stroke-width="1.6"/>
+              <path d="M15 24.5 L21.5 31 L33.5 18.5" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <ellipse cx="18" cy="10.5" rx="8" ry="2.4" fill="#ffffff" opacity=".3" transform="rotate(-18 18 10.5)"/>
+            </svg>
+            <span class="feat-card-title">File verification</span>
+            <span class="feat-card-chev" aria-hidden="true">›</span>
+          </button>
+          <div class="feat-card-body">
+            <p>Completed downloads can be verified with <b>SHA-256</b>. Run the check from the Downloads menu to confirm a file still matches what the server sent.</p>
+            <div class="f-demo f-demo-verify" aria-hidden="true">
+              <span class="f-lab mono" id="f-verify-hash">sha256: c3aa…</span>
+              <div class="f-bar"><i class="f-fill f-fill-verify"></i></div>
+              <span class="f-lab" id="f-verify-lab">Verifying…</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat-card" id="fc-batch">
+          <button class="feat-card-head" type="button" aria-expanded="false">
+            <svg class="f-ico f-ico-violet" viewBox="0 0 48 48" aria-hidden="true">
+              <defs><linearGradient id="g-bat" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#b9a8f5"/><stop offset="1" stop-color="#5b3aa8"/></linearGradient></defs>
+              <rect x="6" y="9" width="36" height="30" rx="2.5" fill="#eef1f6" stroke="#5f7286" stroke-width="1.6"/>
+              <rect x="6" y="9" width="36" height="6.5" fill="url(#g-bat)"/>
+              <rect x="11" y="21.5" width="26" height="3" rx="1.5" fill="url(#g-bat)"/>
+              <rect x="11" y="28" width="18" height="3" rx="1.5" fill="url(#g-bat)" opacity=".65"/>
+              <ellipse cx="15" cy="12" rx="8" ry="1.6" fill="#ffffff" opacity=".35"/>
+            </svg>
+            <span class="feat-card-title">Batch &amp; page grabber</span>
+            <span class="feat-card-chev" aria-hidden="true">›</span>
+          </button>
+          <div class="feat-card-body">
+            <p>Paste a list of links, or point NDM at a page and <b>collect the downloadable files it links to</b>. Added links go straight to the queue.</p>
+            <div class="f-demo f-demo-batch" aria-hidden="true">
+              <div class="f-bar"><i class="f-fill f-fill-batch"></i></div>
+              <span class="f-lab" id="f-batch-lab">1 link to 8 files queued</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat-card" id="fc-schedule">
+          <button class="feat-card-head" type="button" aria-expanded="false">
+            <svg class="f-ico f-ico-amber" viewBox="0 0 48 48" aria-hidden="true">
+              <defs><linearGradient id="g-sch" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#ffd97e"/><stop offset="1" stop-color="#c07f0a"/></linearGradient></defs>
+              <circle cx="24" cy="26" r="17" fill="url(#g-sch)" stroke="#8f6206" stroke-width="1.6"/>
+              <path d="M24 16 V26 L31 30" fill="none" stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="19" y="3.5" width="10" height="5.5" rx="1.6" fill="#8f6206"/>
+              <ellipse cx="18" cy="14.5" rx="7" ry="2.4" fill="#ffffff" opacity=".4" transform="rotate(-40 18 14.5)"/>
+            </svg>
+            <span class="feat-card-title">Scheduler &amp; speed caps</span>
+            <span class="feat-card-chev" aria-hidden="true">›</span>
+          </button>
+          <div class="feat-card-body">
+            <p>Set <b>time windows and days</b> for queue schedules, with per-queue speed limits and concurrency limits. Pause or resume the queue when you need to.</p>
+            <div class="f-demo f-demo-speed" aria-hidden="true">
+              <div class="f-bar"><i class="f-fill f-fill-cap"></i></div>
+              <span class="f-lab mono" id="f-speed-lab">42.0 MB/s</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feat-card" id="fc-safety">
+          <button class="feat-card-head" type="button" aria-expanded="false">
+            <svg class="f-ico f-ico-slate" viewBox="0 0 48 48" aria-hidden="true">
+              <defs><linearGradient id="g-saf" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#93a5b8"/><stop offset="1" stop-color="#3f5063"/></linearGradient></defs>
+              <path d="M24 4 L41 10 V24 C41 33 34 40.5 24 44 C14 40.5 7 33 7 24 V10 Z"
+                    fill="url(#g-saf)" stroke="#2c3a4a" stroke-width="1.6"/>
+              <rect x="20.6" y="13" width="6.8" height="14" rx="2" fill="#ffffff"/>
+              <circle cx="24" cy="32.5" r="3.4" fill="#ffffff"/>
+              <ellipse cx="18" cy="10.5" rx="8" ry="2.4" fill="#ffffff" opacity=".3" transform="rotate(-18 18 10.5)"/>
+            </svg>
+            <span class="feat-card-title">Private by default</span>
+            <span class="feat-card-chev" aria-hidden="true">›</span>
+          </button>
+          <div class="feat-card-body">
+            <p>No account, ads, or telemetry. NDM only connects to the servers required for your downloads and update checks. Requests to private network addresses are <b>rejected before a connection is made</b>.</p>
+            <div class="f-demo f-demo-safe" aria-hidden="true">
+              <div class="f-bar"><i class="f-fill f-fill-safe"></i></div>
+              <span class="f-lab" id="f-safe-lab">http://192.168.1.10/ blocked</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/partials.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

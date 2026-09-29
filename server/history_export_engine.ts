@@ -1,4 +1,4 @@
-import { DownloadItem } from './types';
+import { DownloadItem } from '../src/types/download';
 
 export interface HistoryFilter {
   query?: string;
@@ -66,7 +66,7 @@ export class HistoryExportEngine {
   }
 
   public exportToEf2(items: DownloadItem[]): string {
-    // IDM Export File Format (.ef2)
+    // Legacy .ef2 export format (kept for compatibility with existing files)
     return items.map(i => {
       return `<\n${i.url}\nfile: ${i.filename || ''}\nfilepath: ${i.destinationPath || ''}\n>`;
     }).join('\n');

@@ -88,7 +88,7 @@ async function runTests() {
 
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/tc02.bin`, 'tc02.bin', TEST_DIR, 4);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(100);
-      assert(item.status === 'error' && (item.error?.includes('HTTP 200') || item.error?.includes('Protocol')), 'TC-02', 'Range request returning HTTP 200 is rejected');
+      assert(!!(item.status === 'error' && (item.error?.includes('HTTP 200') || item.error?.includes('Protocol'))), 'TC-02', 'Range request returning HTTP 200 is rejected');
     }
 
     // TC-03: Range request returns 206 with incorrect Content-Range -> failure
@@ -107,7 +107,7 @@ async function runTests() {
 
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/tc03.bin`, 'tc03.bin', TEST_DIR, 4);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(100);
-      assert(item.status === 'error' && item.error?.includes('Content-Range'), 'TC-03', 'Incorrect Content-Range header is rejected');
+      assert(!!(item.status === 'error' && item.error?.includes('Content-Range')), 'TC-03', 'Incorrect Content-Range header is rejected');
     }
 
     // TC-04: Premature EOF -> Retries from exact offset without corrupting
@@ -154,7 +154,7 @@ async function runTests() {
 
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/tc05.bin`, 'tc05.bin', TEST_DIR, 2);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(100);
-      assert(item.status === 'error' && (item.error?.includes('boundary') || item.error?.includes('Protocol')), 'TC-05', 'Bytes beyond chunk boundary are rejected');
+      assert(!!(item.status === 'error' && (item.error?.includes('boundary') || item.error?.includes('Protocol'))), 'TC-05', 'Bytes beyond chunk boundary are rejected');
     }
 
     // TC-06: Pause during active streaming -> Safe async shutdown without EBADF
@@ -267,7 +267,7 @@ async function runTests() {
 
     // TC-11: Unknown Content-Length -> Safe single stream mode without invalid Range headers
     {
-      serverHandler = (req, res) => {
+      serverHandler = (_req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
         res.end(testPayload);
       };

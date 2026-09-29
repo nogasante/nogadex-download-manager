@@ -9,6 +9,7 @@ export class DynamicRangeScheduler {
   public totalBytes: number;
   public chunks: ChunkProgress[] = [];
   public minSplitSizeBytes: number;
+  public maxConnections: number = 32;
   private nextChunkId: number = 0;
   private isPaused: boolean = false;
   private lastSplitTimes: Map<number, number> = new Map();
@@ -16,6 +17,7 @@ export class DynamicRangeScheduler {
   constructor(totalBytes: number, initialConnections: number = 8, minSplitSizeBytes: number = 256 * 1024) {
     this.totalBytes = totalBytes;
     this.minSplitSizeBytes = minSplitSizeBytes;
+    this.maxConnections = Math.max(1, Math.min(initialConnections, 64));
     this.initializeRanges(initialConnections);
   }
 
@@ -62,6 +64,23 @@ export class DynamicRangeScheduler {
     this.nextChunkId = Math.max(...this.chunks.map(c => c.id), 0) + 1;
   }
 
+  // Consolidate multiple interrupted chunks into a single continuous stream
+  public consolidateToOneStream(downloadedBytes: number) {
+    if (this.totalBytes <= 0) return;
+    const safeDownloaded = Math.max(0, Math.min(downloadedBytes, this.totalBytes));
+    this.chunks = [{
+      id: 0,
+      startByte: 0,
+      endByte: this.totalBytes - 1,
+      downloadedBytes: safeDownloaded,
+      totalBytes: this.totalBytes,
+      speedBps: 0,
+      status: 'idle',
+    }];
+    this.nextChunkId = 1;
+    this.maxConnections = 1;
+  }
+
   public pause() {
     this.isPaused = true;
   }
@@ -73,7 +92,8 @@ export class DynamicRangeScheduler {
   // Intelligent Work Stealing Algorithm
   // Evaluates donor progress, estimated completion time, and bandwidth balance
   public stealWork(thiefSpeedBps?: number, minUsefulStealBytes?: number): ChunkProgress | null {
-    if (this.isPaused || this.totalBytes <= 0) return null;
+    const unfinishedChunks = this.chunks.filter(c => c.status !== 'done');
+    if (this.isPaused || this.totalBytes <= 0 || unfinishedChunks.length >= this.maxConnections) return null;
 
     const minSplit = minUsefulStealBytes ?? this.minSplitSizeBytes;
     const now = Date.now();
@@ -88,7 +108,7 @@ export class DynamicRangeScheduler {
 
         // Anti-thrashing guard: do not split same chunk more than once every 500ms
         const lastSplit = this.lastSplitTimes.get(chunk.id) || 0;
-        if (now - lastSplit < 500 && remaining < minSplit * 4) {
+        if (now - lastSplit < 500) {
           continue;
         }
 
@@ -120,6 +140,16 @@ export class DynamicRangeScheduler {
     } else {
       donorBytes = Math.floor(remaining / 2);
     }
+
+    // Straggler containment: a slow donor should never keep more bytes than it can
+    // finish in ~2 seconds. This bounds tail latency instead of letting a straggler
+    // crawl through megabytes while faster workers sit idle. The donor always keeps
+    // at least minSplit bytes from its current offset so splits stay worthwhile.
+    if (candidateChunk.speedBps > 0) {
+      const maxDonorBytes = candidateChunk.speedBps * 2;
+      donorBytes = Math.min(donorBytes, maxDonorBytes);
+    }
+    donorBytes = Math.max(minSplit, Math.min(remaining - minSplit, donorBytes));
 
     const splitPoint = currentOffset + donorBytes;
 

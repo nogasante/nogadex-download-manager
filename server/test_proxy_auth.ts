@@ -25,7 +25,7 @@ async function runProxyAuthTests() {
 
   assert(manager.shouldBypassProxy('http://localhost:5005/api') === true, 'Bypasses localhost');
   assert(manager.shouldBypassProxy('https://git.internal.corp/repo.git') === true, 'Bypasses wildcard *.internal.corp');
-  assert(manager.shouldBypassProxy('https://speed.cloudflare.com/down') === false, 'Routes external cloudflare.com via proxy');
+  assert(manager.shouldBypassProxy('https://files.example-cdn.net/down') === false, 'Routes external example-cdn.net via proxy');
 
   // Test 2: Site Credential Matching (Basic Auth Header Injection)
   console.log('[Test 2] Testing Basic Auth Credential Injection...');
@@ -33,12 +33,12 @@ async function runProxyAuthTests() {
     id: 'cred_1',
     domain: 'members.example.com',
     authType: 'basic',
-    username: 'nogadex_user',
+    username: 'ndm_user',
     password: 'secret_password_123',
   });
 
   const h1 = manager.resolveHeadersForUrl('https://members.example.com/downloads/premium.zip');
-  const expectedBasic = 'Basic ' + Buffer.from('nogadex_user:secret_password_123').toString('base64');
+  const expectedBasic = 'Basic ' + Buffer.from('ndm_user:secret_password_123').toString('base64');
   assert(h1['Authorization'] === expectedBasic, 'Injected Basic Auth header correctly');
   assert(h1['User-Agent'] === USER_AGENT_PRESETS.chrome_windows, 'Injected default Chrome UA');
 
@@ -62,13 +62,13 @@ async function runProxyAuthTests() {
     authType: 'cookie',
     cookies: 'session_id=abc1234; tier=vip',
     customHeaders: {
-      'X-Custom-Client': 'Nogadex-VIP-Client',
+      'X-Custom-Client': 'NDM-VIP-Client',
     },
   });
 
   const h3 = manager.resolveHeadersForUrl('https://custom.cdn.net/stream/video.mp4', 'firefox_windows');
   assert(h3['Cookie'] === 'session_id=abc1234; tier=vip', 'Injected cookies');
-  assert(h3['X-Custom-Client'] === 'Nogadex-VIP-Client', 'Injected custom headers');
+  assert(h3['X-Custom-Client'] === 'NDM-VIP-Client', 'Injected custom headers');
   assert(h3['User-Agent'] === USER_AGENT_PRESETS.firefox_windows, 'Applied Firefox UA preset');
 
   console.log('=== SUITE 26 PASSED: ALL PROXY & AUTH TESTS SUCCEEDED ===');

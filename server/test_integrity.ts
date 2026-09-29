@@ -63,7 +63,6 @@ async function runIntegritySuite() {
   const HASH_10MB = sha256(PAYLOAD_10MB);
 
   let activePayload = PAYLOAD_10MB;
-  let activeHash = HASH_10MB;
   let serverHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void = () => {};
 
   const mockServer = http.createServer((req, res) => {
@@ -78,7 +77,6 @@ async function runIntegritySuite() {
     // -------------------------------------------------------------------------
     {
       activePayload = PAYLOAD_100MB;
-      activeHash = HASH_100MB;
 
       serverHandler = (req, res) => {
         if (req.method === 'HEAD') {
@@ -121,7 +119,6 @@ async function runIntegritySuite() {
     // -------------------------------------------------------------------------
     {
       activePayload = PAYLOAD_10MB;
-      activeHash = HASH_10MB;
 
       serverHandler = (req, res) => {
         if (req.method === 'HEAD') {
@@ -146,7 +143,6 @@ async function runIntegritySuite() {
     // -------------------------------------------------------------------------
     {
       activePayload = PAYLOAD_10MB;
-      activeHash = HASH_10MB;
       let dropCount = 0;
 
       serverHandler = (req, res) => {
@@ -183,7 +179,6 @@ async function runIntegritySuite() {
     // -------------------------------------------------------------------------
     {
       activePayload = PAYLOAD_10MB;
-      activeHash = HASH_10MB;
 
       serverHandler = (req, res) => {
         if (req.method === 'HEAD') {
@@ -229,7 +224,6 @@ async function runIntegritySuite() {
     // -------------------------------------------------------------------------
     {
       activePayload = PAYLOAD_10MB;
-      activeHash = HASH_10MB;
 
       serverHandler = (req, res) => {
         if (req.method === 'HEAD') {

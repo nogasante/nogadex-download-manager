@@ -13,6 +13,9 @@ export interface HostCapability {
   maxConnections?: number;
   supportsHttp2?: boolean;
   lastChecked?: number;
+  downgradeCount?: number;             // Times this domain's caps were downgraded by 429/503 pressure
+  lastDowngradeAt?: number;            // Timestamp of the last downgrade (drives the calm-down window)
+  capSuccessesSinceDowngrade?: number; // Clean transfers since last downgrade (drives recovery)
 }
 
 export interface NetworkHealthMetrics {
@@ -57,6 +60,14 @@ export class HostIntelligence {
   private CAPABILITY_TTL_MS: number = 60 * 60 * 1000; // 1 hour TTL default
   private PROFILE_TTL_MS: number = 30 * 60 * 1000;   // 30 minutes TTL default
   private readonly MAX_CACHED_DOMAINS = 500;           // Bounded cache map
+  private capRecoveryTracking: Map<string, { lastProbeAt: number }> = new Map();
+  private lastRecoveryDomains: Set<string> = new Set();
+  // Connection-cap downgrade/recovery tuning (instance fields so tests can adjust timing)
+  public CAP_RECOVERY_COOLDOWN_MS: number = 30 * 1000;      // Calm-down window after a downgrade
+  public CAP_RECOVERY_PROBE_INTERVAL_MS: number = 5 * 1000; // Min spacing between recovery probes
+  public CAP_RECOVERY_SUCCESS_THRESHOLD: number = 3;        // Clean successes needed before a probe
+  public CAP_RECOVERY_STEP: number = 1;                     // Connections restored per probe
+  public MIN_CONNECTIONS_FLOOR: number = 2;                 // Never downgrade below this
 
   constructor(capabilityTtlMs?: number, profileTtlMs?: number) {
     if (capabilityTtlMs !== undefined) {
@@ -101,8 +112,12 @@ export class HostIntelligence {
       supportsRanges: caps.supportsRanges !== undefined ? caps.supportsRanges : (caps.acceptRanges !== undefined ? caps.acceptRanges : existing.supportsRanges),
       acceptRanges: caps.acceptRanges !== undefined ? caps.acceptRanges : (caps.supportsRanges !== undefined ? caps.supportsRanges : existing.acceptRanges),
       supportsHEAD: caps.supportsHEAD !== undefined ? caps.supportsHEAD : (existing.supportsHEAD ?? true),
-      maxObservedConnections: caps.maxObservedConnections || caps.maxConnections || existing.maxObservedConnections || 8,
-      maxConnections: caps.maxConnections || caps.maxObservedConnections || existing.maxConnections || 8,
+      // maxObservedConnections is the historical high-water ceiling; downgrades
+      // lower only maxConnections so stepwise recovery has room to walk back up.
+      // No fabricated default: if nothing is known about a host's connection
+      // ceiling, both stay undefined and the user's requested count flows through.
+      maxObservedConnections: Math.max(existing.maxObservedConnections || 0, caps.maxObservedConnections || caps.maxConnections || 0) || undefined,
+      maxConnections: caps.maxConnections || caps.maxObservedConnections || existing.maxConnections,
       supportsHttp2: caps.supportsHttp2 !== undefined ? caps.supportsHttp2 : (existing.supportsHttp2 || false),
       lastChecked: Date.now(),
     });
@@ -112,12 +127,150 @@ export class HostIntelligence {
     this.setCapabilities(url, { acceptRanges, supportsRanges: acceptRanges, maxObservedConnections: maxObservedConns });
   }
 
+  /**
+   * Number of clean chunk completions recorded since the last downgrade for
+   * this domain (diagnostics + test observability).
+   */
+  public getCapSuccesses(url: string): number {
+    const cap = this.capabilities.get(this.extractDomain(url));
+    return cap?.capSuccessesSinceDowngrade || 0;
+  }
+
+  /**
+   * Returns true once if the most recent getOptimalConnectionsForHost call
+   * restored a connection level for this domain (a recovery probe fired).
+   * The engine uses this to raise its adaptive concurrency ceiling.
+   */
+  public consumeCapRecovery(url: string): boolean {
+    const domain = this.extractDomain(url);
+    if (this.lastRecoveryDomains.has(domain)) {
+      this.lastRecoveryDomains.delete(domain);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Record a successful data transfer for connection-cap recovery. Clean
+   * successes against a previously downgraded domain build evidence that the
+   * host tolerates more concurrency again.
+   */
+  public recordCapSuccess(url: string): void {
+    const domain = this.extractDomain(url);
+    const cap = this.capabilities.get(domain);
+    if (!cap) return;
+    cap.capSuccessesSinceDowngrade = (cap.capSuccessesSinceDowngrade || 0) + 1;
+    // Eligibility for the next recovery probe is evaluated lazily in
+    // getOptimalConnectionsForHost from capSuccessesSinceDowngrade itself.
+  }
+
+  /**
+   * Hard single-stream throttle for hosts that actively rate-limit us mid-transfer
+   * (HTTP 429/503 on a chunk). Recorded as a tracked downgrade so the normal
+   * recovery path can restore concurrency once clean successes accumulate.
+   */
+  public throttleHostToSingleStream(url: string, historicalCeiling?: number): void {
+    this.setCapabilities(url, { maxConnections: 1, maxObservedConnections: historicalCeiling });
+    const domain = this.extractDomain(url);
+    const cap = this.capabilities.get(domain);
+    if (cap) {
+      cap.downgradeCount = (cap.downgradeCount || 0) + 1;
+      cap.lastDowngradeAt = Date.now();
+      cap.capSuccessesSinceDowngrade = 0;
+    }
+    const tracking = this.capRecoveryTracking.get(domain);
+    if (tracking) {
+      tracking.lastProbeAt = 0;
+    } else {
+      this.capRecoveryTracking.set(domain, { lastProbeAt: 0 });
+    }
+  }
+
+  public getOptimalConnectionsForHost(url: string, requestedConnections: number): number {
+    const domain = this.extractDomain(url);
+    if (
+      domain.includes('uploadhaven.com') ||
+      domain.includes('rapidgator.net') ||
+      domain.includes('1fichier.com') ||
+      domain.includes('turbobit.net') ||
+      domain.includes('nitroflare.com') ||
+      domain.includes('ddownload.com') ||
+      domain.includes('filefactory.com')
+    ) {
+      this.capRecoveryTracking.delete(domain);
+      return 1; // Strict single-stream file host rate limiting
+    }
+    const cap = this.getCapabilities(url);
+    if (!cap || !cap.maxConnections) {
+      this.capRecoveryTracking.delete(domain);
+      return requestedConnections;
+    }
+
+    // Cap recovery: a previously downgraded domain periodically probes with one
+    // extra connection once enough clean successes are observed. Recovery is
+    // stepwise, so a host that still rate-limits gets pushed back down quickly
+    // while a genuinely recovered host regains its full concurrency.
+    if ((cap.maxObservedConnections || 0) > cap.maxConnections) {
+      const now = Date.now();
+      // Calm-down window runs from the last downgrade; probe spacing runs from
+      // the last recovery probe. Both are relative checks so tuning the
+      // thresholds takes effect immediately (including in tests).
+      const tracking = this.capRecoveryTracking.get(domain) || { lastProbeAt: 0 };
+      if (
+        (cap.capSuccessesSinceDowngrade || 0) >= this.CAP_RECOVERY_SUCCESS_THRESHOLD &&
+        now - (cap.lastDowngradeAt || 0) >= this.CAP_RECOVERY_COOLDOWN_MS &&
+        now - tracking.lastProbeAt >= this.CAP_RECOVERY_PROBE_INTERVAL_MS
+      ) {
+        const restored = Math.min(cap.maxObservedConnections || cap.maxConnections, cap.maxConnections + this.CAP_RECOVERY_STEP);
+        if (restored > cap.maxConnections) {
+          cap.maxConnections = restored;
+          cap.downgradeCount = Math.max(0, (cap.downgradeCount || 0) - 1);
+          cap.capSuccessesSinceDowngrade = 0;
+          tracking.lastProbeAt = now;
+          this.lastRecoveryDomains.add(domain);
+        }
+      }
+      this.capRecoveryTracking.set(domain, tracking);
+    }
+
+    return Math.min(requestedConnections, cap.maxConnections);
+  }
+
+  public getHostReferer(url: string): string {
+    try {
+      const parsed = new URL(url);
+      const domain = parsed.hostname.toLowerCase();
+      if (domain.endsWith('uploadhaven.com')) {
+        return 'https://uploadhaven.com/';
+      }
+      return `${parsed.protocol}//${parsed.hostname}/`;
+    } catch {
+      return 'https://uploadhaven.com/';
+    }
+  }
+
+  /**
+   * Evidence-based concurrency ceiling: the engine reports how many streams
+   * are ACTUALLY running cleanly each speed interval. This is the honest
+   * high-water mark that recovery walks back toward after a downgrade.
+   */
+  public observeConcurrency(url: string, activeConnections: number): void {
+    if (!activeConnections || activeConnections < 1) return;
+    const domain = this.extractDomain(url);
+    const cap = this.capabilities.get(domain);
+    if (!cap) return; // no probe info yet; nothing to observe against
+    if ((cap.maxObservedConnections || 0) < activeConnections) {
+      cap.maxObservedConnections = activeConnections;
+    }
+  }
+
   public getCapabilities(url: string): HostCapability | null {
     const domain = this.extractDomain(url);
     const cap = this.capabilities.get(domain);
     if (!cap) return null;
-    if (cap.lastChecked && Date.now() - cap.lastChecked > this.CAPABILITY_TTL_MS) {
+    if (cap.lastChecked && Date.now() - cap.lastChecked >= this.CAPABILITY_TTL_MS) {
       this.capabilities.delete(domain);
+      this.capRecoveryTracking.delete(domain);
       return null;
     }
     return cap;
@@ -182,11 +335,24 @@ export class HostIntelligence {
     this.metrics.set(domain, m);
 
     const cap = this.capabilities.get(domain);
-    if (cap && (m.error429Count >= 2 || m.error503Count >= 3)) {
-      const maxC = cap.maxObservedConnections || cap.maxConnections || 8;
-      const downgraded = Math.max(2, Math.floor(maxC * 0.7));
-      cap.maxObservedConnections = downgraded;
-      cap.maxConnections = downgraded;
+    if (
+      cap &&
+      (m.error429Count >= 2 || m.error503Count >= 3) &&
+      Date.now() - (cap.lastDowngradeAt || 0) >= this.CAP_RECOVERY_COOLDOWN_MS
+    ) {
+      const currentCap = cap.maxConnections || 8;
+      const downgraded = Math.max(this.MIN_CONNECTIONS_FLOOR, Math.floor(currentCap * 0.7));
+      if (downgraded < currentCap) {
+        cap.maxConnections = downgraded;
+        cap.downgradeCount = (cap.downgradeCount || 0) + 1;
+        cap.lastDowngradeAt = Date.now();
+        cap.capSuccessesSinceDowngrade = 0;
+        this.capRecoveryTracking.set(domain, { lastProbeAt: 0 });
+      }
+      // Consume the accumulated pressure: the next downgrade needs fresh errors.
+      // (Lifetime tallies remain available via m.statusCodes.)
+      m.error429Count = 0;
+      m.error503Count = 0;
     }
   }
 
@@ -194,7 +360,7 @@ export class HostIntelligence {
     url: string,
     statusCode?: number,
     latencyMs?: number,
-    bytes?: number,
+    _bytes?: number,
     isError?: boolean,
     isTimeout?: boolean
   ) {
@@ -389,5 +555,7 @@ export class HostIntelligence {
     this.capabilities.clear();
     this.metrics.clear();
     this.profiles.clear();
+    this.capRecoveryTracking.clear();
+    this.lastRecoveryDomains.clear();
   }
 }

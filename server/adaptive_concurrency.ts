@@ -164,6 +164,18 @@ export class AdaptiveConcurrencyController {
     return 'maintain';
   }
 
+  public throttleDown(targetWorkers: number = 1) {
+    // A server-mandated single-stream downgrade (429/503 burst rejection)
+    // must also lower the FLOOR: with minWorkers=2 a throttle to 1 silently
+    // re-arms a second worker on the next evaluate(), immediately re-bursting
+    // a host that just told us "one connection only".
+    if (targetWorkers < this.minWorkers) {
+      this.minWorkers = Math.max(1, targetWorkers);
+    }
+    this.currentWorkers = Math.max(this.minWorkers, Math.min(this.currentWorkers, targetWorkers));
+    this.lastAdjustmentTime = Date.now();
+  }
+
   public forceScaleUp(): boolean {
     if (this.currentWorkers < this.maxWorkers) {
       this.currentWorkers++;

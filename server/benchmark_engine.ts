@@ -68,10 +68,10 @@ async function runBenchmarkEnvironment(
   strategy: 'fixed_1' | 'fixed_4' | 'fixed_8' | 'adaptive_p2' | 'intelligent_p3'
 ): Promise<BenchmarkResult> {
   const reqCounts = new Map<string, number>();
-  let serverHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void = (req, res) => {};
+  let serverHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void = () => {};
 
-  const server = http.createServer((req, res) => {
-    serverHandler(req, res);
+  const server = http.createServer((rq, rs) => {
+    serverHandler(rq, rs);
   });
 
   await new Promise<void>((resolve) => server.listen(TEST_PORT, () => resolve()));
@@ -195,10 +195,14 @@ async function runBenchmarkEnvironment(
   const sha256Valid = downloadedHash === expectedHash && item.status === 'completed';
 
   const telemetry = engine.getDownloadTelemetry(item.id);
-  const retries = telemetry?.retryEvents || 0;
-  const steals = telemetry?.stealEvents || Math.max(0, finalRanges - connections);
+  const retries = telemetry?.totalRetries || 0;
+  const steals = telemetry?.totalSteals || Math.max(0, finalRanges - connections);
 
   engine.destroy();
+  // Reset shared singleton host state so rate-limit downgrades from one
+  // environment (429/503 tests) cannot poison the next environment's
+  // connection caps (keeps benchmark environments independent).
+  engine.hostIntelligence.clear();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 
   try {

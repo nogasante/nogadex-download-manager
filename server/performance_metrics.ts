@@ -35,7 +35,7 @@ export function scrubSensitiveUrl(rawUrl: string): string {
       'secret', 'access_token', 'api_key', 'apikey', 'credential', 'x-amz-signature'
     ]);
     const keysToScrub: string[] = [];
-    u.searchParams.forEach((val, key) => {
+    u.searchParams.forEach((_val, key) => {
       if (SENSITIVE_KEYS.has(key.toLowerCase()) || key.toLowerCase().includes('token') || key.toLowerCase().includes('signature')) {
         keysToScrub.push(key);
       }
@@ -124,7 +124,7 @@ export class PerformanceTelemetryTracker {
     this.recordSteal(donorId, thiefId, undefined, undefined, stolenBytes);
   }
 
-  public recordRetry(reasonOrUrl: string, reasonOrAttempt?: string | number, attemptOrBytes?: number): void {
+  public recordRetry(reasonOrUrl: string, reasonOrAttempt?: string | number, _attemptOrBytes?: number): void {
     this.totalRetries++;
     let r = 'Network Error';
     if (typeof reasonOrUrl === 'string') {

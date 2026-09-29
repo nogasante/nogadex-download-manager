@@ -2,7 +2,7 @@ import { DownloadEngine } from './engine';
 import { SettingsManager } from './settings_store';
 import { RulesEngine } from './rules_engine';
 import { QueueSchedulerEngine } from './queue_scheduler_engine';
-import { NativeBridgeManager, NOGADEX_LOCAL_TOKEN } from './native_bridge';
+import { NativeBridgeManager, NDM_LOCAL_TOKEN } from './native_bridge';
 import { ClipboardMonitorEngine } from './clipboard_monitor';
 import { HistoryExportEngine } from './history_export_engine';
 import { SiteGrabberEngine } from './site_grabber_engine';
@@ -72,14 +72,14 @@ async function runFullIntegrationPhase9() {
     console.log('[Step 4] Testing Browser Extension Bridge Security...');
     const authCheck = nativeBridge.validateRequest({
       ip: '127.0.0.1',
-      headers: { 'x-nogadex-token': NOGADEX_LOCAL_TOKEN },
+      headers: { 'x-ndm-token': NDM_LOCAL_TOKEN },
       socket: { remoteAddress: '127.0.0.1' },
     } as any);
     assert(authCheck.valid === true, 'Authorized local loopback token accepted');
 
     const unauthCheck = nativeBridge.validateRequest({
       ip: '10.0.0.15',
-      headers: { 'x-nogadex-token': NOGADEX_LOCAL_TOKEN },
+      headers: { 'x-ndm-token': NDM_LOCAL_TOKEN },
       socket: { remoteAddress: '10.0.0.15' },
     } as any);
     assert(unauthCheck.valid === false, 'Unauthorized LAN request rejected');

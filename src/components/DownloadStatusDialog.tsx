@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DownloadItem } from '../types/download';
 import { WindowsDialog } from './common/WindowsDialog';
 import { WinCheckbox, WinInput, WinButton, WinTabs, WinGroupBox } from './common/WinControls';
+import { formatSize, formatSpeed, formatEta, formatPercentage } from '../utils/formatters';
+import { isDownloadActive } from '../utils/downloadHelpers';
+import { pickHelpGuideForError } from '../utils/errorHelp';
+import { FileIcon } from './FileIcon';
+import { getApiBaseUrl, getWsUrl } from '../config/apiConfig';
 
 interface DownloadStatusDialogProps {
   isOpen: boolean;
@@ -9,19 +14,166 @@ interface DownloadStatusDialogProps {
   onClose: () => void;
   onPause: (id: string) => void;
   onResume: (id: string) => void;
+  onCancel?: (id: string) => void;
+  onOpenFile?: (path: string) => void;
+  onOpenFolder?: (path: string) => void;
+  onSetSpeedLimit?: (id: string, speedLimitKB: number) => void;
+  /** Optional hook to open Help Center in-app (browser/modal mode). */
+  onOpenHelpCenter?: (tab?: 'howto' | 'faq' | 'bug' | 'feedback' | 'legal', guide?: string) => void;
+  isStandalone?: boolean;
 }
 
 export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
   isOpen,
-  download,
+  download: initialDownload,
   onClose,
   onPause,
   onResume,
+  onCancel,
+  onOpenFile,
+  onOpenFolder,
+  onSetSpeedLimit,
+  onOpenHelpCenter,
+  isStandalone = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'status' | 'limiter' | 'options'>('status');
   const [showDetails, setShowDetails] = useState<boolean>(true);
   const [speedLimitEnabled, setSpeedLimitEnabled] = useState<boolean>(false);
   const [speedLimitKB, setSpeedLimitKB] = useState<number>(500);
+
+  // Live real-time download item state
+  const [liveDownload, setLiveDownload] = useState<DownloadItem | null>(initialDownload);
+  const liveDownloadRef = useRef<DownloadItem | null>(initialDownload);
+
+  // Refresh URL modal state
+  const [isRefreshingUrl, setIsRefreshingUrl] = useState<boolean>(false);
+  const [newUrlInput, setNewUrlInput] = useState<string>('');
+  const [isUpdatingUrl, setIsUpdatingUrl] = useState<boolean>(false);
+
+  useEffect(() => {
+    setLiveDownload(initialDownload);
+    liveDownloadRef.current = initialDownload;
+  }, [initialDownload]);
+
+  // Establish direct live WebSocket & polling listener for 60fps real-time updates
+  useEffect(() => {
+    if (!isOpen || !initialDownload?.id) return;
+
+    let isMounted = true;
+    const downloadId = initialDownload.id;
+
+    // 1. Direct Polling Fallback (every 500ms while active)
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${getApiBaseUrl()}/api/downloads/${downloadId}`, {
+          signal: AbortSignal.timeout(1500),
+        });
+        if (res.ok && isMounted) {
+          const item = await res.json();
+          setLiveDownload((prev) => {
+            const merged = prev ? { ...prev, ...item } : item;
+            liveDownloadRef.current = merged;
+            return merged;
+          });
+        }
+      } catch {}
+    }, 500);
+
+    // 2. Real-time WebSocket connection for instant 60fps streaming
+    let ws: WebSocket | null = null;
+    try {
+      ws = new WebSocket(getWsUrl());
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'DOWNLOAD_PROGRESS' && msg.data?.id === downloadId && isMounted) {
+            setLiveDownload((prev) => {
+              const updated = prev ? { ...prev, ...msg.data } : msg.data;
+              liveDownloadRef.current = updated;
+              return updated;
+            });
+          } else if (
+            (msg.type === 'STATE_UPDATE' || msg.type === 'DOWNLOADS_UPDATE' || msg.type === 'INIT_STATE') &&
+            isMounted
+          ) {
+            const list = Array.isArray(msg.data) ? msg.data : (msg.data?.downloads || msg.downloads);
+            if (Array.isArray(list)) {
+              const item = list.find((d: DownloadItem) => d.id === downloadId);
+              if (item) {
+                setLiveDownload((prev) => {
+                  const updated = prev ? { ...prev, ...item } : item;
+                  liveDownloadRef.current = updated;
+                  return updated;
+                });
+              }
+            }
+          }
+        } catch {}
+      };
+    } catch {}
+
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+      if (ws) ws.close();
+    };
+  }, [isOpen, initialDownload?.id]);
+
+  const download = liveDownload || initialDownload;
+
+  useEffect(() => {
+    if (download) {
+      const hasLimit = typeof download.speedLimitKB === 'number' && download.speedLimitKB > 0;
+      setSpeedLimitEnabled(hasLimit);
+      if (hasLimit) setSpeedLimitKB(download.speedLimitKB!);
+    }
+  }, [download?.id, download?.speedLimitKB]);
+
+  const handleToggleSpeedLimit = (enabled: boolean) => {
+    setSpeedLimitEnabled(enabled);
+    if (download && onSetSpeedLimit) {
+      onSetSpeedLimit(download.id, enabled ? speedLimitKB : 0);
+    }
+  };
+
+  const handleChangeSpeedLimit = (val: number) => {
+    const num = Math.max(0, val);
+    setSpeedLimitKB(num);
+    if (download && speedLimitEnabled && onSetSpeedLimit) {
+      onSetSpeedLimit(download.id, num);
+    }
+  };
+
+  // Safe file and folder opening with Electron & backend API fallbacks
+  const triggerOpenFile = useCallback(() => {
+    if (!download?.destinationPath) return;
+    if (onOpenFile) {
+      onOpenFile(download.destinationPath);
+    } else if ((window as any).electronAPI?.openFile) {
+      (window as any).electronAPI.openFile(download.destinationPath);
+    } else {
+      fetch(`${getApiBaseUrl()}/api/open-file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: download.destinationPath }),
+      }).catch(() => {});
+    }
+  }, [download?.destinationPath, onOpenFile]);
+
+  const triggerOpenFolder = useCallback(() => {
+    if (!download?.destinationPath) return;
+    if (onOpenFolder) {
+      onOpenFolder(download.destinationPath);
+    } else if ((window as any).electronAPI?.showItemInFolder) {
+      (window as any).electronAPI.showItemInFolder(download.destinationPath);
+    } else {
+      fetch(`${getApiBaseUrl()}/api/open-folder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: download.destinationPath }),
+      }).catch(() => {});
+    }
+  }, [download?.destinationPath, onOpenFolder]);
 
   // Options on completion
   const [notifyOnComplete, setNotifyOnComplete] = useState<boolean>(true);
@@ -32,34 +184,47 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
 
   const totalBytes = download.totalBytes || 0;
   const downloadedBytes = download.downloadedBytes || 0;
-  const pct = totalBytes > 0
-    ? Math.min(100, Math.round((downloadedBytes / totalBytes) * 1000) / 10)
-    : 0;
+  const numPct = formatPercentage(downloadedBytes, totalBytes, 1);
+  const pct = numPct.toFixed(1);
 
-  const isDownloading = download.status === 'downloading' || download.status === 'probing';
+  // Determine Dialog State
+  const isCompleted = download.status === 'completed';
+  const isPaused = download.status === 'paused';
+  const isError = download.status === 'error';
+  const isAssembling = (download.status as any) === 'assembling' || (download.status as any) === 'rebuilding';
+  void isDownloadActive;
 
-  const formatSize = (bytes: number) => {
-    if (!bytes || isNaN(bytes) || bytes <= 0) return '0 KB';
-    const mb = bytes / (1024 * 1024);
-    if (mb >= 1) return `${mb.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })} MB`;
-    return `${(bytes / 1024).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} KB`;
-  };
+  // The "Get help" link opens the guide matching *why* it failed: login/link
+  // trouble goes to the logins guide, network trouble to pause-resume & retry.
+  const errorHelp = isError ? pickHelpGuideForError(download.error) : null;
 
-  const formatSpeed = (bps: number) => {
-    if (!bps || isNaN(bps) || bps <= 0) return '0.00 KB/s';
-    const kb = bps / 1024;
-    const mb = kb / 1024;
-    if (mb >= 1) return `${mb.toFixed(2)} MB/s`;
-    return `${kb.toFixed(2)} KB/s`;
-  };
+  // Segmented progress model: one segment per parallel connection.
+  // Falls back to a single whole-file segment when the engine hasn't sent
+  // chunk detail (single-stream / non-resumable downloads).
+  const rawChunks: any[] = download.chunks && download.chunks.length > 0
+    ? download.chunks
+    : [{ startByte: 0, endByte: totalBytes, downloadedBytes, totalBytes, status: download.status }];
+  const segments = rawChunks.map((c: any) => {
+    const startByte = typeof c.startByte === 'number' ? c.startByte : (typeof c.start === 'number' ? c.start : 0);
+    const endByte = typeof c.endByte === 'number' ? c.endByte : (typeof c.end === 'number' ? c.end : 0);
+    const cDownloaded = typeof c.downloadedBytes === 'number' ? c.downloadedBytes : (typeof c.downloaded === 'number' ? c.downloaded : 0);
+    const cTotal = typeof c.totalBytes === 'number' && c.totalBytes > 0
+      ? c.totalBytes
+      : (endByte > startByte ? endByte - startByte + 1 : 0);
+    const cStatus = c.status || (isCompleted ? 'done' : 'downloading');
+    return { startByte, endByte, downloadedBytes: cDownloaded, totalBytes: cTotal, status: cStatus };
+  });
 
-  const formatEta = (sec: number) => {
-    if (!sec || isNaN(sec) || sec <= 0 || !isFinite(sec)) return '0 sec';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    if (m > 0) return `${m} min ${s} sec`;
-    return `${s} sec`;
-  };
+  // Dynamic Dialog Title per State
+  const dialogTitle = isCompleted
+    ? `Download complete - ${download.filename}`
+    : isPaused
+    ? `Paused - ${download.filename}`
+    : isError
+    ? `Download failed - ${download.filename}`
+    : isAssembling
+    ? `Building file... - ${download.filename}`
+    : `${pct}% ${download.filename}`;
 
   const tabs = [
     { id: 'status', label: 'Download status' },
@@ -67,6 +232,7 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
     { id: 'options', label: 'Options on completion' },
   ];
 
+  // Dynamic Footer Actions per State
   const footer = (
     <div className="w-full flex items-center justify-between">
       <WinButton
@@ -78,22 +244,113 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
       </WinButton>
 
       <div className="flex items-center gap-2">
-        {isDownloading ? (
-          <WinButton
-            variant="secondary"
-            onClick={() => onPause(download.id)}
-            className="min-w-[80px]"
-          >
-            Pause
-          </WinButton>
+        {isCompleted ? (
+          <>
+            <WinButton
+              variant="primary"
+              onClick={triggerOpenFile}
+              className="min-w-[80px]"
+            >
+              Open
+            </WinButton>
+            <WinButton
+              variant="secondary"
+              onClick={triggerOpenFolder}
+              className="min-w-[90px]"
+            >
+              Open Folder
+            </WinButton>
+          </>
+        ) : isPaused ? (
+          <>
+            <WinButton
+              variant="primary"
+              onClick={() => onResume(download.id)}
+              className="min-w-[80px]"
+            >
+              Resume
+            </WinButton>
+            {onCancel && (
+              <WinButton
+                variant="secondary"
+                onClick={() => onCancel(download.id)}
+                className="min-w-[80px]"
+              >
+                Cancel
+              </WinButton>
+            )}
+          </>
+        ) : isError ? (
+          <>
+            <WinButton
+              variant="primary"
+              onClick={() => onResume(download.id)}
+              className="min-w-[80px]"
+            >
+              Retry
+            </WinButton>
+            <WinButton
+              variant="secondary"
+              onClick={() => {
+                if ((window as any).electronAPI?.openWindow) {
+                  (window as any).electronAPI.openWindow('refresh-url', { id: download.id });
+                } else {
+                  setNewUrlInput(download.url || '');
+                  setIsRefreshingUrl(true);
+                }
+              }}
+              className="min-w-[95px]"
+            >
+              Refresh Link
+            </WinButton>
+            {onCancel && (
+              <WinButton
+                variant="secondary"
+                onClick={() => onCancel(download.id)}
+                className="min-w-[80px]"
+              >
+                Cancel
+              </WinButton>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                const guide = errorHelp?.guideId || 'pause-resume';
+                if ((window as any).electronAPI?.openWindow) {
+                  (window as any).electronAPI.openWindow('help-center', { tab: 'howto', guide });
+                } else if (onOpenHelpCenter) {
+                  onOpenHelpCenter('howto', guide);
+                }
+              }}
+              className="text-[11px] text-brand hover:underline whitespace-nowrap"
+              title={errorHelp?.title || 'Open the pause, resume & retry guide'}
+            >
+              Get help
+            </button>
+          </>
+        ) : isAssembling ? (
+          <div className="text-[11px] text-status-assembling font-medium animate-pulse px-2">
+            Finalizing assembly...
+          </div>
         ) : (
-          <WinButton
-            variant="primary"
-            onClick={() => onResume(download.id)}
-            className="min-w-[80px]"
-          >
-            Resume
-          </WinButton>
+          <>
+            <WinButton
+              variant="secondary"
+              onClick={() => onPause(download.id)}
+              className="min-w-[80px]"
+            >
+              Pause
+            </WinButton>
+            {onCancel && (
+              <WinButton
+                variant="secondary"
+                onClick={() => onCancel(download.id)}
+                className="min-w-[80px]"
+              >
+                Cancel
+              </WinButton>
+            )}
+          </>
         )}
         <WinButton
           variant="secondary"
@@ -110,9 +367,12 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
     <WindowsDialog
       isOpen={isOpen}
       onClose={onClose}
-      title={`${pct}% ${download.filename}`}
-      width="w-[600px]"
+      title={dialogTitle}
+      width="w-[640px]"
       footer={footer}
+      isStandalone={isStandalone}
+      autoFitHeight={isStandalone}
+      showMinimize={true}
     >
       {/* Tabs */}
       <WinTabs
@@ -124,121 +384,236 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
       {/* Tab: Download status */}
       {activeTab === 'status' && (
         <div className="space-y-3">
+          {/* File & App Icon Header */}
+          <div className="flex items-center gap-2.5 p-2 bg-neutral-50 rounded-[3px] border border-neutral-200">
+            <FileIcon filename={download.filename} filePath={download.destinationPath} className="w-7 h-7 shrink-0" />
+            <div className="truncate flex-1">
+              <div className="font-bold text-[13px] text-neutral-900 truncate">{download.filename}</div>
+              <div 
+                onClick={triggerOpenFolder} 
+                className="text-[11px] text-brand hover:underline cursor-pointer truncate font-sans"
+                title="Click to open folder in Explorer"
+              >
+                {download.destinationPath || 'Downloads'}
+              </div>
+            </div>
+          </div>
+
           {/* URL Header */}
           <div className="space-y-1">
-            <label className="text-[#64748b] text-[11px] font-medium">Source URL:</label>
+            <label className="text-neutral-500 text-[11px] font-medium">Address:</label>
             <WinInput
               type="text"
               readOnly
               value={download.url}
-              className="w-full font-mono text-[11px] text-[#005a9e] bg-[#f8fafc]"
+              className="w-full font-mono text-[11px] text-brand bg-neutral-50"
             />
           </div>
 
-          {/* Download Details Grid */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px] bg-[#f8fafc] p-2.5 rounded-[3px] border border-[#e2e8f0]">
-            <div>
-              <span className="text-[#64748b]">Status:</span>{' '}
-              <span className="font-semibold capitalize text-[#005a9e]">{download.status}</span>
-            </div>
-            <div>
-              <span className="text-[#64748b]">File size:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">{formatSize(totalBytes)}</span>
-            </div>
-            <div>
-              <span className="text-[#64748b]">Downloaded:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">
-                {formatSize(downloadedBytes)} ({pct}%)
-              </span>
-            </div>
-            <div>
-              <span className="text-[#64748b]">Transfer rate:</span>{' '}
-              <span className="font-semibold text-[#16a34a] font-mono">
-                {formatSpeed(download.speedBps || 0)}
-              </span>
-            </div>
-            <div>
-              <span className="text-[#64748b]">Time left:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">
-                {formatEta(download.etaSeconds || 0)}
-              </span>
-            </div>
-            <div>
-              <span className="text-[#64748b]">Resume capability:</span>{' '}
-              <span className={`font-semibold ${download.resumable ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
-                {download.resumable ? 'Yes' : 'No'}
-              </span>
-            </div>
-          </div>
+          {/* Download Details - Professional State-Specific Layout */}
+          {isCompleted ? (
+            <div className="bg-neutral-50 p-3 rounded-[3px] border border-neutral-200 space-y-2 text-[12px]">
+              <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-neutral-500">Status:</span>
+                  <span className="font-bold text-status-completed text-[12.5px] inline-flex items-center gap-1">
+                    Download complete
+                  </span>
+                </div>
+                <div className="text-[11px] text-neutral-500 font-mono">
+                  {formatSize(totalBytes, true)}
+                </div>
+              </div>
 
-          {/* Windows Classic Segmented Progress Bar */}
+              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 pt-0.5 text-[12px]">
+                <div className="truncate">
+                  <span className="text-neutral-500">Saved to:</span>{' '}
+                  <span
+                    onClick={triggerOpenFolder}
+                    className="font-medium text-brand hover:underline cursor-pointer truncate"
+                    title={download.destinationPath}
+                  >
+                    {download.destinationPath ? download.destinationPath.split(/[/\\]/).pop() || download.destinationPath : 'Downloads'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Downloaded:</span>{' '}
+                  <span className="font-semibold text-neutral-900">{formatSize(totalBytes)} (100%)</span>
+                </div>
+                {download.speedBps && download.speedBps > 0 ? (
+                  <div>
+                    <span className="text-neutral-500">Average speed:</span>{' '}
+                    <span className="font-medium text-neutral-900 font-mono">{formatSpeed(download.speedBps)}</span>
+                  </div>
+                ) : null}
+                <div>
+                  <span className="text-neutral-500">Total size:</span>{' '}
+                  <span className="font-semibold text-neutral-900">{formatSize(totalBytes)}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px] bg-neutral-50 p-2.5 rounded-[3px] border border-neutral-200">
+              <div>
+                <span className="text-neutral-500">Status:</span>{' '}
+                {isPaused ? (
+                  <span className="font-bold text-status-paused">Paused</span>
+                ) : isError ? (
+                  <span className="font-bold text-status-error">Failed</span>
+                ) : isAssembling ? (
+                  <span className="font-bold text-status-assembling">Rebuilding File...</span>
+                ) : (
+                  <span className="font-semibold text-brand">Downloading...</span>
+                )}
+              </div>
+
+              <div>
+                <span className="text-neutral-500">File size:</span>{' '}
+                <span className="font-semibold text-neutral-900">{formatSize(totalBytes)}</span>
+              </div>
+
+              <div>
+                <span className="text-neutral-500">Downloaded:</span>{' '}
+                <span className="font-semibold text-neutral-900">
+                  {formatSize(downloadedBytes, true)} ({pct}%)
+                </span>
+              </div>
+
+              <div>
+                <span className="text-neutral-500">Transfer rate:</span>{' '}
+                {isPaused ? (
+                  <span className="text-status-paused font-mono">Paused</span>
+                ) : isError ? (
+                  <span className="text-status-error font-mono">Stopped</span>
+                ) : (
+                  <span className="font-semibold text-status-completed font-mono">
+                    {formatSpeed(download.speedBps || 0)}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <span className="text-neutral-500">Time left:</span>{' '}
+                <span className="font-semibold text-neutral-900">
+                  {isPaused ? 'Paused' : formatEta(download.etaSeconds || 0)}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-neutral-500">Resume capability:</span>{' '}
+                <span className={`font-semibold ${download.resumable ? 'text-status-completed' : 'text-neutral-500'}`}>
+                  {download.resumable ? 'Yes' : 'No'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-neutral-500">Connections:</span>{' '}
+                <span className="font-semibold text-neutral-900 font-mono">
+                  {download.connections || segments.length}{download.autoStreams ? ' (auto)' : ''}
+                </span>
+              </div>
+
+              {isError && download.error && (
+                <div className="col-span-2 pt-1">
+                  <span className="text-status-error font-semibold">Error details:</span>{' '}
+                  <span className="text-status-error font-mono text-[11px] bg-red-50 px-1 py-0.5 rounded border border-red-200 block mt-0.5">
+                    {download.error}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Segmented 3D Progress Bar: one glossy block per parallel
+              connection with 2px gaps. Single-stream downloads render one
+              full-width block. */}
           <div className="space-y-1">
-            <div className="w-full h-5 bg-[#e2e8f0] border border-[#94a3b8] rounded-[2px] p-[1px] overflow-hidden shadow-inner">
-              <div
-                className="h-full bg-gradient-to-r from-[#2563eb] to-[#3b82f6] rounded-[1px] transition-all duration-300 relative overflow-hidden"
-                style={{ width: `${pct}%` }}
-              >
-                {/* Visual Glass Sheen */}
-                <div className="absolute inset-0 bg-white/20 h-1/2" />
-              </div>
+            <div className="w-full h-6 ndm-progress-trench-3d p-[1.5px] flex gap-[2px] overflow-hidden">
+              {segments.map((seg, i) => {
+                const segTotal = Math.max(1, seg.totalBytes || 1);
+                const segDone = isCompleted || seg.status === 'done' || seg.status === 'completed' || seg.downloadedBytes >= segTotal;
+                const segPct = segDone ? 100 : Math.min(100, Math.max(0, (seg.downloadedBytes / segTotal) * 100));
+                return (
+                  <div
+                    key={i}
+                    className="h-full rounded-[2px] relative overflow-hidden"
+                    style={{ flex: Math.max(1, segTotal) }}
+                    title={`Connection ${i + 1}: ${formatSize(seg.downloadedBytes)} / ${formatSize(seg.totalBytes)} (${Math.round(segPct)}%)`}
+                  >
+                    <div
+                      className={`h-full transition-all duration-300 relative overflow-hidden ${
+                        segDone
+                          ? 'ndm-progress-fill-3d-complete'
+                          : isPaused
+                          ? 'ndm-progress-fill-3d-paused'
+                          : isError
+                          ? 'ndm-progress-fill-3d-error'
+                          : isAssembling
+                          ? 'ndm-progress-fill-3d-assembling'
+                          : 'ndm-progress-fill-3d-active'
+                      }`}
+                      style={{ width: `${segPct}%` }}
+                    >
+                      <div className="absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/60 to-transparent pointer-events-none" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-between text-[10.5px] font-mono text-neutral-500 px-0.5">
+              <span>
+                {segments.length === 1 ? 'Single connection' : `${segments.length} parallel connections`}
+                {' · '}{formatSize(downloadedBytes)} of {formatSize(totalBytes)}
+              </span>
+              <span className="font-bold text-neutral-700">{pct}%</span>
             </div>
           </div>
 
-          {/* Details Collapsible Area */}
+          {/* Details Collapsible Area (per-connection table) */}
           {showDetails && (
-            <div className="space-y-2 pt-1 border-t border-[#e2e8f0]">
-              <div className="text-[11px] font-semibold text-[#475569]">
-                Start positions and download progress by connections:
+            <div className="space-y-2 pt-1 border-t border-neutral-200">
+              <div className="text-[11px] font-semibold text-neutral-600 flex items-center justify-between">
+                <span>Download progress by connections:</span>
+                <span className="font-mono text-[10.5px] text-neutral-500">
+                  {segments.length} {segments.length === 1 ? 'Connection' : 'Parallel Connections'}
+                </span>
               </div>
 
-              {/* Chunk Visualization Ribbon */}
-              <div className="w-full h-3 bg-[#e2e8f0] border border-[#cbd5e1] rounded-[2px] overflow-hidden flex">
-                {(download.chunks && download.chunks.length > 0
-                  ? download.chunks
-                  : [{ id: 0, start: 0, end: totalBytes, downloaded: downloadedBytes, status: 'downloading' }]
-                ).map((c, i) => {
-                  const chunkTotal = Math.max(1, (c.end || 0) - (c.start || 0) + 1);
-                  const chunkDownloaded = typeof c.downloaded === 'number' && !isNaN(c.downloaded) ? c.downloaded : 0;
-                  const chunkPct = Math.min(100, (chunkDownloaded / chunkTotal) * 100);
-                  const flexWeight = Math.max(1, chunkTotal);
-
-                  return (
-                    <div
-                      key={i}
-                      className="h-full border-r border-white/50 relative bg-[#cbd5e1]"
-                      style={{ flex: flexWeight }}
-                    >
-                      <div
-                        className="h-full bg-[#2563eb]"
-                        style={{ width: `${chunkPct}%` }}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Connections Table */}
-              <div className="border border-[#cbd5e1] rounded-[2px] bg-white max-h-32 overflow-y-auto font-sans text-[11px]">
+              <div className="border border-neutral-300 rounded-[2px] bg-white max-h-36 overflow-y-auto font-sans text-[11px] custom-scrollbar">
                 <table className="w-full border-collapse">
-                  <thead className="bg-[#f1f5f9] sticky top-0 border-b border-[#cbd5e1] text-[#475569]">
+                  <thead className="bg-neutral-100 sticky top-0 border-b border-neutral-300 text-neutral-600 z-10">
                     <tr>
                       <th className="py-1 px-2 w-10 text-center font-semibold">N.</th>
+                      <th className="py-1 px-2 text-left font-semibold">Range</th>
                       <th className="py-1 px-2 text-left font-semibold">Downloaded</th>
                       <th className="py-1 px-2 text-left font-semibold">Status / Info</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#f1f5f9]">
-                    {(download.chunks && download.chunks.length > 0
-                      ? download.chunks
-                      : [{ id: 0, start: 0, end: totalBytes, downloaded: downloadedBytes, status: download.status }]
-                    ).map((chunk, idx) => {
-                      const cDownloaded = typeof chunk.downloaded === 'number' && !isNaN(chunk.downloaded) ? chunk.downloaded : 0;
+                  <tbody className="divide-y divide-neutral-100">
+                    {segments.map((seg, idx) => {
+                      const cDownloaded = Math.max(0, seg.downloadedBytes || 0);
+                      const cTotal = Math.max(1, seg.totalBytes || 1);
+                      const isChunkDone = isCompleted || seg.status === 'done' || seg.status === 'completed' || cDownloaded >= cTotal;
+
                       return (
-                        <tr key={idx} className="hover:bg-[#f8fafc]">
-                          <td className="py-1 px-2 text-center font-mono text-[#64748b]">{idx + 1}</td>
-                          <td className="py-1 px-2 font-mono">{formatSize(cDownloaded)}</td>
-                          <td className="py-1 px-2 text-[#005a9e]">
-                            {chunk.status === 'completed' ? 'Completed' : 'Receiving data (HTTP 206 Partial)'}
+                        <tr key={idx} className="hover:bg-neutral-50">
+                          <td className="py-1 px-2 text-center font-mono text-neutral-500">{idx + 1}</td>
+                          <td className="py-1 px-2 font-mono text-neutral-600">
+                            {seg.startByte.toLocaleString()} – {seg.endByte.toLocaleString()}
+                          </td>
+                          <td className="py-1 px-2 font-mono">
+                            {formatSize(cDownloaded)} {cTotal > 1 ? `/ ${formatSize(cTotal)}` : ''}
+                          </td>
+                          <td className="py-1 px-2">
+                            {isCompleted || isChunkDone ? (
+                              <span className="text-status-completed font-semibold">Completed (100%)</span>
+                            ) : isPaused ? (
+                              <span className="text-status-paused">Stream paused</span>
+                            ) : isError ? (
+                              <span className="text-status-error">Stream interrupted</span>
+                            ) : (
+                              <span className="text-brand">Receiving data</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -257,7 +632,7 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
           <WinGroupBox title="Bandwidth Throttling" className="space-y-3">
             <WinCheckbox
               checked={speedLimitEnabled}
-              onChange={setSpeedLimitEnabled}
+              onChange={handleToggleSpeedLimit}
               label="Enable Speed Limiter for this download"
             />
             <div className="flex items-center gap-2 pl-6">
@@ -265,10 +640,10 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
                 type="number"
                 disabled={!speedLimitEnabled}
                 value={speedLimitKB}
-                onChange={(e) => setSpeedLimitKB(Number(e.target.value))}
+                onChange={(e) => handleChangeSpeedLimit(Number(e.target.value))}
                 className="w-28 font-mono"
               />
-              <span className="text-[#64748b]">KB/s maximum transfer speed</span>
+              <span className="text-neutral-500">KB/s maximum transfer speed</span>
             </div>
           </WinGroupBox>
         </div>
@@ -297,6 +672,67 @@ export const DownloadStatusDialog: React.FC<DownloadStatusDialogProps> = ({
             />
           </WinGroupBox>
         </div>
+      )}
+
+      {/* Refresh Link Modal */}
+      {isRefreshingUrl && (
+        <WindowsDialog
+          isOpen={isRefreshingUrl}
+          onClose={() => setIsRefreshingUrl(false)}
+          title="Refresh Download Address"
+          width="w-[520px]"
+          footer={
+            <>
+              <WinButton
+                variant="primary"
+                disabled={isUpdatingUrl || !newUrlInput.trim()}
+                onClick={async () => {
+                  if (!newUrlInput.trim() || !download) return;
+                  setIsUpdatingUrl(true);
+                  try {
+                    const res = await fetch(`${getApiBaseUrl()}/api/downloads/${download.id}/update-url`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ url: newUrlInput.trim() }),
+                    });
+                    if (res.ok) {
+                      setIsRefreshingUrl(false);
+                      setNewUrlInput('');
+                      onResume(download.id);
+                    }
+                  } catch {}
+                  setIsUpdatingUrl(false);
+                }}
+                className="min-w-[90px]"
+              >
+                {isUpdatingUrl ? 'Updating...' : 'Update & Resume'}
+              </WinButton>
+              <WinButton
+                variant="secondary"
+                onClick={() => setIsRefreshingUrl(false)}
+                className="min-w-[70px]"
+              >
+                Cancel
+              </WinButton>
+            </>
+          }
+        >
+          <div className="space-y-3 p-1">
+            <div className="text-[12px] text-neutral-700">
+              Paste the new download link from your browser to resume <strong>{download.filename}</strong> without restarting from scratch:
+            </div>
+            <WinInput
+              value={newUrlInput}
+              onChange={(e) => setNewUrlInput(e.target.value)}
+              placeholder="https://..."
+              className="w-full font-mono text-[11.5px]"
+              autoFocus
+            />
+            <div className="text-[11px] text-neutral-500">
+              Your previously downloaded <strong>{formatSize(downloadedBytes)}</strong> will be retained.
+            </div>
+          </div>
+        </WindowsDialog>
       )}
     </WindowsDialog>
   );

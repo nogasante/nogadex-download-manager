@@ -8,9 +8,7 @@ import { HostIntelligence } from './host_intelligence';
 import { AdaptiveConcurrencyController } from './adaptive_concurrency';
 
 const TEST_PORT = 5091;
-const TEST_DIR = path.join(os.tmpdir(), 'hyper_network_tests');
-
-if (!fs.existsSync(TEST_DIR)) fs.mkdirSync(TEST_DIR, { recursive: true });
+const TEST_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'hyper_network_tests_'));
 
 function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms));
@@ -177,7 +175,7 @@ async function runNetworkTests() {
 
       const hostIntel = new HostIntelligence();
       hostIntel.recordRequestResult(`http://localhost:${TEST_PORT}`, undefined, 8000, 0, true, true);
-      const metrics = hostIntel.getMetrics(`http://localhost:${TEST_PORT}`);
+      const metrics = hostIntel.getMetrics(`http://localhost:${TEST_PORT}`)!;
       assert(metrics.timeoutCount > 0, 'NET-10', 'Connection timeout tracked in host intelligence metrics');
     }
 
@@ -187,7 +185,7 @@ async function runNetworkTests() {
     {
       const hostIntel = new HostIntelligence();
       hostIntel.recordRequestResult(`http://localhost:${TEST_PORT}`, 408, 8000, 0, true, true);
-      const metrics = hostIntel.getMetrics(`http://localhost:${TEST_PORT}`);
+      const metrics = hostIntel.getMetrics(`http://localhost:${TEST_PORT}`)!;
       assert(metrics.statusCodes[408] === 1, 'NET-11', 'Headers 408 timeout tracked with error metrics');
     }
 
@@ -266,7 +264,7 @@ async function runNetworkTests() {
       const hostIntel = new HostIntelligence(60000);
       hostIntel.setCapabilities('http://example.com/file.zip', { supportsRanges: true, supportsHEAD: true });
       const cached = hostIntel.getCapabilities('http://example.com/another.zip');
-      assert(cached !== null && cached.supportsRanges && cached.supportsHEAD, 'NET-14', 'Host capabilities cached per-domain and reused');
+      assert(!!(cached !== null && cached.supportsRanges && cached.supportsHEAD), 'NET-14', 'Host capabilities cached per-domain and reused');
     }
 
     // -------------------------------------------------------------------------

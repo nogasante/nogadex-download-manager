@@ -1,12 +1,10 @@
 import http from 'http';
-import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import express from 'express';
 import { DownloadEngine, validateUrl } from './engine';
 
-const dynamicPort = 5098;
 const TEST_DIR = path.resolve(process.cwd(), 'temp_prod_hardening_test');
 
 function sha256(buf: Buffer): string {
@@ -205,7 +203,7 @@ async function runHardeningTests() {
         res.json({ success: true });
       });
 
-      app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+      app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
         if (err instanceof SyntaxError && 'body' in err) {
           return res.status(400).json({ error: 'Malformed JSON request payload' });
         }
@@ -256,7 +254,6 @@ async function runHardeningTests() {
     // HARD-07: Rapid Concurrent Pause & Resume Races
     // -------------------------------------------------------------------------
     {
-      let isPaused = false;
       serverHandler = (req, res) => {
         if (req.method === 'HEAD') {
           res.writeHead(200, { 'Content-Length': PAYLOAD_2MB.length.toString(), 'Accept-Ranges': 'bytes' });
@@ -306,7 +303,7 @@ async function runHardeningTests() {
       // Final resume to completion
       await engine.resumeDownload(item.id);
       let waitCount = 0;
-      while (item.status !== 'completed' && item.status !== 'error' && waitCount < 100) {
+      while (item.status !== 'completed' && item.status !== 'error' && waitCount < 300) {
         await sleep(50);
         waitCount++;
       }

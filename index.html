@@ -2,11 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ad8759' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/></svg>" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' http://127.0.0.1:5005 ws://127.0.0.1:5005 data: blob:; connect-src 'self' http://127.0.0.1:5005 ws://127.0.0.1:5005 http://localhost:5173 ws://localhost:5173 http://localhost:5005 ws://localhost:5005; img-src 'self' data: blob: http://127.0.0.1:5005; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval';" />
     <title>Nogadex Download Manager</title>
+    <script>
+      /* Appearance pre-paint: apply the persisted theme (light/dark/system),
+         font scale and icon style BEFORE first render so windows never flash
+         the wrong look. Mirrors src/config/appearance.ts — keep in sync. */
+      (function () {
+        try {
+          var s = localStorage.getItem('ndm_appearance');
+          s = s ? JSON.parse(s) : {};
+          var mode = s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system';
+          var dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          root.classList.toggle('theme-dark', dark);
+          root.style.colorScheme = dark ? 'dark' : 'light';
+          if (s.uiScale) root.style.setProperty('--ndm-ui-zoom', String(Math.min(22, Math.max(12, Number(s.uiScale) || 15)) / 15));
+          if (s.iconStyle && s.iconStyle !== 'color') root.setAttribute('data-icons', s.iconStyle);
+          // Keep <meta name="color-scheme">-like behavior: renderer + native windows
+          if (window.electronAPI && window.electronAPI.setNativeTheme) {
+            window.electronAPI.setNativeTheme(mode);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
-  <body class="bg-[#f9f9f8] text-[#1e1e1e] antialiased overflow-hidden select-none">
+  <body class="bg-neutral-50 text-neutral-800 antialiased overflow-hidden select-none">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

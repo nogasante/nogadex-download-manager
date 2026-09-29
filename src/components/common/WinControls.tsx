@@ -22,22 +22,14 @@ export const WinCheckbox: React.FC<WinCheckboxProps> = ({
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
       } ${className}`}
     >
-      <div
-        onClick={(e) => {
-          if (!disabled) {
-            e.preventDefault();
-            onChange(!checked);
-          }
-        }}
-        className={`w-4 h-4 rounded-[2px] transition-all flex items-center justify-center shrink-0 text-[10px] font-bold ${
-          checked
-            ? 'ndm-checkbox-3d-checked text-white'
-            : 'ndm-checkbox-3d-unchecked hover:border-[#005a9e]'
-        }`}
-      >
-        {checked && '✔'}
-      </div>
-      {label && <span className="text-[12px] text-[#1e293b] leading-tight">{label}</span>}
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="w-4 h-4 rounded-[2px] border-neutral-400 text-brand focus:ring-brand/30 cursor-pointer accent-brand"
+      />
+      {label && <span className="text-[12px] text-neutral-800 leading-tight">{label}</span>}
     </label>
   );
 };
@@ -56,6 +48,8 @@ interface WinRadioProps {
 export const WinRadio: React.FC<WinRadioProps> = ({
   checked,
   onChange,
+  name,
+  value,
   label,
   disabled = false,
   className = '',
@@ -66,25 +60,20 @@ export const WinRadio: React.FC<WinRadioProps> = ({
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
       } ${className}`}
     >
-      <div
-        onClick={(e) => {
-          if (!disabled) {
-            e.preventDefault();
-            onChange();
-          }
-        }}
-        className={`w-4 h-4 rounded-full border transition-all flex items-center justify-center shrink-0 ${
-          checked
-            ? 'border-[#005a9e] bg-[#005a9e] shadow-inner'
-            : 'border-[#94a3b8] bg-[#ffffff] hover:border-[#005a9e]'
-        }`}
-      >
-        {checked && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-      </div>
-      {label && <span className="text-[12px] text-[#1e293b] leading-tight">{label}</span>}
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        disabled={disabled}
+        onChange={() => onChange()}
+        className="w-4 h-4 border-neutral-400 text-brand focus:ring-brand/30 cursor-pointer accent-brand"
+      />
+      {label && <span className="text-[12px] text-neutral-800 leading-tight">{label}</span>}
     </label>
   );
 };
+
 
 /* 3. WIN32 UNIFIED TEXT INPUT */
 export const WinInput = React.forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
@@ -92,7 +81,7 @@ export const WinInput = React.forwardRef<HTMLInputElement, InputHTMLAttributes<H
     return (
       <input
         ref={ref}
-        className={`h-[26px] px-2 bg-white border border-[#94a3b8] rounded-[2px] text-[12px] text-[#1e293b] focus:border-[#005a9e] focus:ring-1 focus:ring-[#005a9e]/30 outline-none transition-all disabled:bg-[#f1f5f9] disabled:text-[#94a3b8] disabled:border-[#cbd5e1] ${className}`}
+        className={`h-[26px] px-2 bg-white border border-neutral-400 rounded-[2px] text-[12px] text-neutral-800 focus:bg-white focus:border-brand focus:ring-1 focus:ring-brand/30 outline-none transition-all disabled:bg-neutral-100 disabled:text-neutral-400 disabled:border-neutral-300 ${className}`}
         {...props}
       />
     );
@@ -106,7 +95,7 @@ export const WinSelect = React.forwardRef<HTMLSelectElement, SelectHTMLAttribute
     return (
       <select
         ref={ref}
-        className={`h-[26px] px-2 bg-white border border-[#94a3b8] rounded-[2px] text-[12px] text-[#1e293b] focus:border-[#005a9e] outline-none transition-all disabled:bg-[#f1f5f9] disabled:text-[#94a3b8] disabled:border-[#cbd5e1] cursor-pointer ${className}`}
+        className={`h-[26px] px-2 bg-white border border-neutral-400 rounded-[2px] text-[12px] text-neutral-800 focus:bg-white focus:border-brand outline-none transition-all disabled:bg-neutral-100 disabled:text-neutral-400 disabled:border-neutral-300 cursor-pointer ${className}`}
         {...props}
       >
         {children}
@@ -128,9 +117,9 @@ export const WinButton: React.FC<WinButtonProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    primary: 'bg-[#005a9e] hover:bg-[#1070ca] active:bg-[#004578] text-white font-medium shadow-xs border-transparent',
-    secondary: 'bg-[#f8fafc] hover:bg-[#e2e8f0] active:bg-[#cbd5e1] text-[#1e293b] border-[#cbd5e1]',
-    danger: 'bg-[#dc2626] hover:bg-[#ef4444] text-white font-medium shadow-xs border-transparent',
+    primary: 'bg-brand hover:bg-brand-hover active:bg-brand-active text-white font-medium shadow-xs border-transparent',
+    secondary: 'bg-white hover:bg-neutral-50 active:bg-neutral-200 text-neutral-800 border-neutral-300 shadow-sm',
+    danger: 'bg-status-error hover:bg-status-error text-white font-medium shadow-xs border-transparent',
   }[variant];
 
   return (
@@ -146,15 +135,16 @@ export const WinButton: React.FC<WinButtonProps> = ({
 
 /* 6. WIN32 UNIFIED GROUPBOX */
 interface WinGroupBoxProps {
-  title: string;
+  /** Text or a control (e.g. a checkbox — the "Use authorization" group). */
+  title: ReactNode;
   children: ReactNode;
   className?: string;
 }
 
 export const WinGroupBox: React.FC<WinGroupBoxProps> = ({ title, children, className = '' }) => {
   return (
-    <fieldset className={`border border-[#cbd5e1] p-3 rounded-[3px] ${className}`}>
-      <legend className="px-1.5 text-[11px] font-semibold text-[#005a9e] select-none">
+    <fieldset className={`border border-neutral-300 bg-white p-3 rounded-[3px] shadow-sm ${className}`}>
+      <legend className="px-1.5 text-[11px] font-semibold text-brand select-none bg-white">
         {title}
       </legend>
       {children}
@@ -177,7 +167,7 @@ interface WinTabsProps {
 
 export const WinTabs: React.FC<WinTabsProps> = ({ tabs, activeTab, onChange, className = '' }) => {
   return (
-    <div className={`px-1 -mt-2 mb-3 bg-[#f8fafc] border-b border-[#e2e8f0] flex gap-1 select-none ${className}`}>
+    <div className={`px-1 -mt-2 mb-3 bg-white border-b border-neutral-200 flex flex-wrap gap-x-1 gap-y-0.5 select-none ${className}`}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -185,10 +175,10 @@ export const WinTabs: React.FC<WinTabsProps> = ({ tabs, activeTab, onChange, cla
             key={tab.id}
             type="button"
             onClick={() => onChange(tab.id)}
-            className={`px-3 py-1.5 rounded-t-[3px] border-t border-x transition-colors text-[11.5px] font-medium ${
+            className={`px-3 py-1.5 rounded-t-[3px] border-t border-x whitespace-nowrap transition-colors text-[11.5px] font-medium ${
               isActive
-                ? 'bg-[#ffffff] border-[#cbd5e1] border-b-transparent text-[#005a9e] -mb-[1px] z-10 shadow-xs'
-                : 'bg-transparent border-transparent text-[#64748b] hover:text-[#0f172a]'
+                ? 'bg-white border-neutral-300 border-b-white text-brand -mb-[1px] z-10 shadow-sm'
+                : 'bg-transparent border-transparent text-neutral-500 hover:text-neutral-900'
             }`}
           >
             {tab.label}

@@ -1,4 +1,15 @@
-﻿node_modules
+node_modules
 dist
+dist-server
 .hyper_state.json
 .DS_Store
+release
+release-fresh
+release-out
+release-out2
+scratch
+*.log
+.freebuff/
+release-build/
+server/tmp_*.ts
+server/_tmp_*.ts

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NDM — Nogadex Download Manager for Windows</title>
+<meta name="description" content="A free, open-source download manager for Windows with multi-connection downloads, resume support, file verification, scheduling, and batch downloads.">
+<meta name="theme-color" content="#005a9e">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" href="assets/favicon.ico">
+<script>/* theme before first paint — no flash */
+(function(){var s=localStorage.getItem('ndm-theme');document.documentElement.style.colorScheme=(s==='light'||s==='dark')?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');})();</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="site-nav"></header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <div class="hero-inner">
+        <img class="hero-logo" src="assets/logo.png" alt="">
+        <h1>Nogadex Download Manager</h1>
+        <p class="lede">
+          A download manager for Windows that can use multiple connections, resume
+          interrupted downloads, and verify completed files. Free and open source.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" data-dl href="#">Download for Windows</a>
+          <a class="btn btn-ghost" href="download.html">View downloads</a>
+          <a class="btn btn-ghost" href="features.html">Explore features</a>
+        </div>
+        <p class="dl-facts">
+          v<span data-ver>1.0.4</span> · <span data-size>110.6 MB</span> · Windows · macOS and Linux coming soon ·
+          <a href="changelog.html">What's new</a>
+        </p>
+      </div>
+      <div class="hero-shot">
+        <img src="screenshots/main-window.png" alt="NDM main window" width="1280" height="800">
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <h2 style="text-align:center">Why use NDM?</h2>
+      <div class="why-grid" style="margin:0 auto">
+        <div><b>Multiple connections</b>. Large downloads can use multiple connections at the same time to make better use of available bandwidth.</div>
+        <div><b>Resume downloads</b>. Continue interrupted downloads after a lost connection, restart, or shutdown without downloading completed parts again.</div>
+        <div><b>File verification</b>. Completed downloads can be checked with SHA-256. You can run the check again whenever you need to.</div>
+        <div><b>Scheduling and limits</b>. Set download schedules, speed limits, and concurrency limits, and pause or resume the queue when needed.</div>
+        <div><b>Private by default</b>. No account, ads, or telemetry. NDM only connects to the servers required for your downloads and update checks.</div>
+        <div><b>Free and open source</b>. NDM is released under the MIT License and is free to use for personal and commercial projects.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/partials.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

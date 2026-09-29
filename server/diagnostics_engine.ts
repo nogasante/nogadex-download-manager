@@ -39,7 +39,7 @@ export class DiagnosticsEngine {
     const mem = process.memoryUsage();
     const downloads = this.engine.getAllDownloads();
     const active = downloads.filter(d => d.status === 'downloading');
-    const totalSpeedBytes = active.reduce((acc, d) => acc + (d.speed || 0), 0);
+    const totalSpeedBytes = active.reduce((acc, d) => acc + (d.speedBps || 0), 0);
 
     return {
       rssMemoryMB: Math.round((mem.rss / (1024 * 1024)) * 100) / 100,
@@ -86,12 +86,12 @@ export class DiagnosticsEngine {
     let cdnHealth: CdnProbeResult[] = [];
     if (mockProbes) {
       cdnHealth = [
-        { name: 'Cloudflare Speed', url: 'https://speed.cloudflare.com', status: 'online', latencyMs: 25 },
+        { name: 'Google Global Edge', url: 'https://www.google.com/generate_204', status: 'online', latencyMs: 25 },
         { name: 'AWS CloudFront', url: 'https://aws.amazon.com', status: 'online', latencyMs: 38 },
       ];
     } else {
       const targets = [
-        { name: 'Cloudflare', url: 'https://speed.cloudflare.com/__down?bytes=1' },
+        { name: 'Google Global Edge', url: 'https://www.google.com/generate_204' },
       ];
       for (const t of targets) {
         cdnHealth.push(await this.probeCdnLatency(t));

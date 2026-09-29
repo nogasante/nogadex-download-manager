@@ -1,0 +1,181 @@
+name: NDM Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read # SignPath signing requests verify workflow-run metadata
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    env:
+      # Free open-source code signing via SignPath Foundation (see
+      # CODE_SIGNING_POLICY.md). While these secrets are unset the build stays
+      # unsigned and the signing steps skip automatically — nothing else
+      # changes. Set all four in Repo → Settings → Secrets → Actions once the
+      # Foundation application is approved.
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+      SIGNPATH_PROJECT_SLUG: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+      SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Release Gate Tests
+        run: npm run test:gate
+
+      - name: Build React Frontend & Standalone Backend JS
+        run: npm run build
+
+      - name: Build Windows NSIS Installer (unsigned)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Publishing happens in the dedicated step below, AFTER signing, so the
+        # released installer is always the signed one.
+        run: npx electron-builder --win --publish never
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # The installer must exist as a GitHub Actions artifact before SignPath
+      # will accept it (their GitHub trusted-build-system check).
+      - name: Upload unsigned installer for signing
+        id: upload_unsigned_installer
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ndm-installer-unsigned
+          path: release/*.exe
+          if-no-files-found: error
+
+      - name: Submit signing request (SignPath Foundation)
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: '${{ secrets.SIGNPATH_API_TOKEN }}'
+          organization-id: '${{ secrets.SIGNPATH_ORGANIZATION_ID }}'
+          project-slug: '${{ secrets.SIGNPATH_PROJECT_SLUG }}'
+          signing-policy-slug: '${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}'
+          github-artifact-id: '${{ steps.upload_unsigned_installer.outputs.artifact-id }}'
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: release/signed
+          parameters: |
+            version: "${{ steps.ver.outputs.version }}"
+
+      - name: Adopt signed installer & refresh auto-update metadata
+        if: env.SIGNPATH_API_TOKEN != ''
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $signed = Get-ChildItem release/signed -Filter *.exe | Select-Object -First 1
+          if (-not $signed) { throw 'SignPath returned no signed installer' }
+          $unsigned = Get-ChildItem release -Filter *.exe | Where-Object { $_.Name -eq $signed.Name } | Select-Object -First 1
+          if (-not $unsigned) { throw 'Could not match signed installer to its original file name' }
+          Move-Item -Force $signed.FullName $unsigned.FullName
+          Remove-Item release/signed -Recurse -Force
+          # Differential-update blockmaps are tied to the exact unsigned bytes;
+          # after signing they are stale, so drop them. electron-updater then
+          # falls back to a full (always safe) download.
+          Remove-Item release/*.blockmap -ErrorAction SilentlyContinue
+          # latest.yml must carry the sha512 of the bytes users actually
+          # download (the signed exe) or auto-update would reject the file.
+          $sha512 = [Convert]::ToBase64String([System.Security.Cryptography.SHA512]::Create().ComputeHash([System.IO.File]::ReadAllBytes($unsigned.FullName)))
+          $yml = Get-ChildItem release -Filter latest.yml | Select-Object -First 1
+          # Replace only the top-level (first) sha512 — the installer's hash.
+          $content = Get-Content $yml.FullName -Raw
+          $regex = [System.Text.RegularExpressions.Regex]::new('sha512: .*')
+          [System.IO.File]::WriteAllText($yml.FullName, $regex.Replace($content, "sha512: $sha512", 1), [System.Text.Encoding]::ASCII)
+          Write-Output 'Adopted signed installer; latest.yml sha512 refreshed.'
+
+      - name: Generate SHA-256 Checksums
+        shell: powershell
+        run: |
+          Get-ChildItem -Path release/*.exe | ForEach-Object {
+            $hash = (Get-FileHash -Path $_.FullName -Algorithm SHA256).Hash
+            "$hash  $($_.Name)" | Out-File -FilePath "release/CHECKSUMS.sha256" -Append -Encoding ascii
+          }
+          Get-Content "release/CHECKSUMS.sha256"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*.exe
+            release/latest.yml
+            release/*.blockmap
+            release/CHECKSUMS.sha256
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Release Gate Tests
+        run: npm run test:gate
+
+      - name: Build React Frontend & Standalone Backend JS
+        run: npm run build
+
+      - name: Build macOS DMG (x64 + arm64)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Unsigned for now. Set CSC_LINK / CSC_KEY_PASSWORD when a Developer ID cert is available.
+        run: npx electron-builder --mac --publish always
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Release Gate Tests
+        run: npm run test:gate
+
+      - name: Build React Frontend & Standalone Backend JS
+        run: npm run build
+
+      - name: Build Linux AppImage & deb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --linux --publish always

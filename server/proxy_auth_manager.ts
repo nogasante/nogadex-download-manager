@@ -29,7 +29,7 @@ export const USER_AGENT_PRESETS: Record<string, string> = {
   firefox_windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
   edge_windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0',
   safari_mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
-  idm_compatible: 'Mozilla/5.0 (compatible; NogadexDownloader/2.0; +https://nogadex.org)',
+  downloader_native: 'Mozilla/5.0 (compatible; NDMDownloader/2.0; +https://nogadex.org)',
 };
 
 export class ProxyAuthManager extends EventEmitter {

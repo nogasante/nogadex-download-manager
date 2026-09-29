@@ -1,43 +1,105 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Semi3DZip,
+  Semi3DDocument,
+  Semi3DMusic,
+  Semi3DProgram,
+  Semi3DVideo,
+  Semi3DFolder,
+} from './CategoryIcons3D';
+import { getApiBaseUrl } from '../config/apiConfig';
 
-interface FileIconProps {
-  filename: string;
+export interface FileIconProps {
+  filename?: string;
+  filePath?: string;
   className?: string;
 }
 
-const EXTENSION_MAP: Record<string, string> = {
-  zip: 'zip', rar: 'rar', '7z': '7z', tar: 'tar', gz: 'gz', bz2: 'bz2', iso: 'iso', dmg: 'dmg',
-  exe: 'exe', msi: 'msi', bat: 'exe', cmd: 'exe', apk: 'apk', bin: 'bin',
-  pdf: 'pdf', doc: 'doc', docx: 'docx', xls: 'xls', xlsx: 'xlsx', ppt: 'ppt', pptx: 'pptx',
-  txt: 'txt', csv: 'csv', json: 'json', xml: 'xml',
-  mp4: 'mp4', mkv: 'mkv', avi: 'avi', mov: 'mov', wmv: 'wmv', flv: 'flv', webm: 'webm',
-  mp3: 'mp3', wav: 'wav', flac: 'flac', aac: 'aac', ogg: 'ogg', m4a: 'm4a',
-  jpg: 'jpg', jpeg: 'jpeg', png: 'png', gif: 'gif', webp: 'webp', bmp: 'bmp', svg: 'svg',
-};
+// Global in-memory cache of extracted native Windows base64 icons
+const memoryIconCache = new Map<string, string>();
 
-export const FileIcon: React.FC<FileIconProps> = ({ filename, className = 'w-4 h-4' }) => {
-  const parts = filename.toLowerCase().split('.');
+export const FileIcon: React.FC<FileIconProps> = ({
+  filename = '',
+  filePath = '',
+  className = 'w-4 h-4',
+}) => {
+  const parts = (filename || filePath).toLowerCase().split('.');
   const ext = parts.length > 1 ? parts.pop()! : '';
-  const mapped = EXTENSION_MAP[ext] || 'default';
+  const cacheKey = filePath || `ext:${ext}`;
 
-  // Live dynamic icon endpoint on Windows
-  const dynamicSrc = `/api/file-icons/${ext || 'default'}`;
-  const staticFallback = `/file-icons/${mapped}.png`;
+  const [iconSrc, setIconSrc] = useState<string | null>(() => {
+    return memoryIconCache.get(cacheKey) || null;
+  });
 
-  const [src, setSrc] = useState(dynamicSrc);
+  useEffect(() => {
+    if (!cacheKey) return;
+    if (memoryIconCache.has(cacheKey)) {
+      setIconSrc(memoryIconCache.get(cacheKey)!);
+      return;
+    }
 
-  return (
-    <img
-      src={src}
-      alt=""
-      className={`${className} object-contain shrink-0 select-none pointer-events-none`}
-      onError={() => {
-        if (src !== staticFallback) {
-          setSrc(staticFallback);
-        } else {
-          setSrc('/file-icons/default.png');
+    let isMounted = true;
+    const fetchNativeIcon = async () => {
+      try {
+        if (window.electronAPI?.getFileIcon) {
+          const dataUrl = await window.electronAPI.getFileIcon({ filePath, filename });
+          if (dataUrl) {
+            if (isMounted) {
+              memoryIconCache.set(cacheKey, dataUrl);
+              setIconSrc(dataUrl);
+            }
+            return;
+          }
         }
-      }}
-    />
-  );
+        // Unified OS icon API fallback
+        const res = await fetch(
+          `${getApiBaseUrl()}/api/icon?ext=${encodeURIComponent(ext)}&filename=${encodeURIComponent(filename)}&filePath=${encodeURIComponent(filePath)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data?.icon) {
+            memoryIconCache.set(cacheKey, data.icon);
+            setIconSrc(data.icon);
+          }
+        }
+      } catch {}
+    };
+
+    fetchNativeIcon();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [cacheKey, filePath, filename]);
+
+  // If native Windows application icon or executable icon is available, display it
+  if (iconSrc) {
+    return (
+      <img
+        src={iconSrc}
+        alt=""
+        className={`${className} object-contain shrink-0 select-none pointer-events-none`}
+        onError={() => setIconSrc(null)}
+      />
+    );
+  }
+
+  // High-fidelity semi-3D vector fallback matching file extension category
+  if (['exe', 'msi', 'bat', 'cmd', 'apk', 'bin'].includes(ext)) {
+    return <Semi3DProgram className={className} />;
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'iso', 'dmg'].includes(ext)) {
+    return <Semi3DZip className={className} />;
+  }
+  if (['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'].includes(ext)) {
+    return <Semi3DVideo className={className} />;
+  }
+  if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'].includes(ext)) {
+    return <Semi3DMusic className={className} />;
+  }
+  if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'json', 'xml'].includes(ext)) {
+    return <Semi3DDocument className={className} />;
+  }
+
+  return <Semi3DFolder className={className} />;
 };

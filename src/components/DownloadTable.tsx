@@ -1,6 +1,9 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { DownloadItem } from '../types/download';
 import { FileIcon } from './FileIcon';
+import { ColumnFilterDropdown, COLUMN_FILTER_CONFIGS } from './ColumnFilterDropdown';
+import { formatSize, formatSpeed, formatEta, formatDateTime } from '../utils/formatters';
+import { DownloadStatusBadge } from './common/DownloadStatusBadge';
 
 interface DownloadTableProps {
   downloads: DownloadItem[];
@@ -9,7 +12,37 @@ interface DownloadTableProps {
   onDoubleClick: (item: DownloadItem) => void;
   onContextMenu: (item: DownloadItem, e: React.MouseEvent) => void;
   onAddUrl?: () => void;
+  /** downloadId -> queueId (Q column). */
+  queueAssignments?: Record<string, string>;
+  /** queueId -> display name, for the badge tooltip. */
+  queueNames?: Record<string, string>;
 }
+
+const DEFAULT_COLUMN_WIDTHS = {
+  filename: 280,
+  totalBytes: 95,
+  status: 125,
+  etaSeconds: 95,
+  speedBps: 110,
+  queue: 90,
+  createdAt: 135,
+  url: 320,
+};
+
+type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
+
+const describeAutoStreams = (d: DownloadItem): string => {
+  if (!d.autoStreams) return '';
+  if (!d.resumable) return 'Auto · 1 (this server can\'t split downloads)';
+  if (!d.totalBytes) return 'Auto · 1 (file size not known yet)';
+  const MB = 1024 * 1024;
+  const tier =
+    d.totalBytes <= 1 * MB ? 'small file' :
+    d.totalBytes <= 8 * MB ? 'small-to-medium file' :
+    d.totalBytes <= 64 * MB ? 'medium file' :
+    'large file';
+  return `Auto · ${d.connections} connection${d.connections === 1 ? '' : 's'} (${tier})`;
+};
 
 export const DownloadTable: React.FC<DownloadTableProps> = ({
   downloads,
@@ -17,10 +50,79 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
   onSelectionChange,
   onDoubleClick,
   onContextMenu,
+  queueAssignments = {},
+  queueNames = {},
 }) => {
   const [sortField, setSortField] = useState<keyof DownloadItem>('createdAt');
   const [sortAsc, setSortAsc] = useState(false);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
+
+  // Column filtering state
+  const [columnFilters, setColumnFilters] = useState<Record<string, Set<string>>>({});
+  const [openFilter, setOpenFilter] = useState<{
+    field: string;
+    position: { top: number; left: number };
+  } | null>(null);
+
+  // Resizable column widths with persistence
+  const [colWidths, setColWidths] = useState<typeof DEFAULT_COLUMN_WIDTHS>(() => {
+    try {
+      const saved = localStorage.getItem('ndm_column_widths');
+      if (saved) {
+        return { ...DEFAULT_COLUMN_WIDTHS, ...JSON.parse(saved) };
+      }
+    } catch {}
+    return DEFAULT_COLUMN_WIDTHS;
+  });
+
+  const resizingRef = useRef<{
+    col: ColumnKey;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  const handleResizeStart = useCallback((col: ColumnKey, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = {
+      col,
+      startX: e.clientX,
+      startWidth: colWidths[col],
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const delta = moveEvent.clientX - resizingRef.current.startX;
+      const newWidth = Math.max(50, resizingRef.current.startWidth + delta);
+      setColWidths((prev) => {
+        const next = { ...prev, [resizingRef.current!.col]: newWidth };
+        try {
+          localStorage.setItem('ndm_column_widths', JSON.stringify(next));
+        } catch {}
+        return next;
+      });
+    };
+
+    const handleMouseUp = () => {
+      resizingRef.current = null;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [colWidths]);
+
+  const handleResetWidth = (col: ColumnKey, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setColWidths((prev) => {
+      const next = { ...prev, [col]: DEFAULT_COLUMN_WIDTHS[col] };
+      try {
+        localStorage.setItem('ndm_column_widths', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const handleSort = (field: keyof DownloadItem) => {
     if (sortField === field) {
@@ -31,15 +133,53 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
     }
   };
 
+  const handleToggleColumnFilter = (field: string, filterId: string) => {
+    setColumnFilters((prev) => {
+      const current = new Set(prev[field] || []);
+      if (current.has(filterId)) {
+        current.delete(filterId);
+      } else {
+        current.add(filterId);
+      }
+      return { ...prev, [field]: current };
+    });
+  };
+
+  const handleClearColumnFilters = (field: string) => {
+    setColumnFilters((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  // Filter downloads by column filters first
+  const filteredDownloads = useMemo(() => {
+    return downloads.filter((d) => {
+      for (const [field, filterSet] of Object.entries(columnFilters)) {
+        if (!filterSet || filterSet.size === 0) continue;
+        const configs = COLUMN_FILTER_CONFIGS[field];
+        if (!configs) continue;
+        const matchesAny = Array.from(filterSet).some((fId) => {
+          const opt = configs.find((c) => c.id === fId);
+          return opt ? opt.test(d) : true;
+        });
+        if (!matchesAny) return false;
+      }
+      return true;
+    });
+  }, [downloads, columnFilters]);
+
+  // Then sort
   const sortedDownloads = useMemo(() => {
-    return [...downloads].sort((a, b) => {
+    return [...filteredDownloads].sort((a, b) => {
       const valA = a[sortField] ?? '';
       const valB = b[sortField] ?? '';
       if (valA < valB) return sortAsc ? -1 : 1;
       if (valA > valB) return sortAsc ? 1 : -1;
       return 0;
     });
-  }, [downloads, sortField, sortAsc]);
+  }, [filteredDownloads, sortField, sortAsc]);
 
   const isAllSelected = sortedDownloads.length > 0 && selectedIds.size === sortedDownloads.length;
   const isPartiallySelected = selectedIds.size > 0 && selectedIds.size < sortedDownloads.length;
@@ -94,123 +234,173 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
     }
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes <= 0) return '0 KB';
-    const mb = bytes / (1024 * 1024);
-    if (mb >= 1) return `${mb.toFixed(2)} MB`;
-    return `${(bytes / 1024).toFixed(1)} KB`;
+  const totalTableWidth = useMemo(() => {
+    return Object.values(colWidths).reduce((sum, w) => sum + w, 0);
+  }, [colWidths]);
+
+  // Renders a Windows File Explorer style column header with chevron indicator
+  const renderHeaderCell = (
+    // 'queue' is a synthetic column (not a DownloadItem field) — Q column.
+    field: keyof DownloadItem | 'queue',
+    colKey: ColumnKey,
+    title: string,
+    prefix?: React.ReactNode
+  ) => {
+    const isSorted = field !== 'queue' && sortField === field;
+    const hasActiveFilter = field !== 'queue' && (columnFilters[field]?.size || 0) > 0;
+    const hasColumnFilter = field !== 'queue'; // 'queue' is synthetic — no filter/sort model
+
+    return (
+      <th
+        key={colKey}
+        onClick={() => field !== 'queue' && handleSort(field)}
+        className={`relative h-[28px] py-0 px-2 text-left text-[11.5px] font-normal text-neutral-700 whitespace-nowrap overflow-hidden border-r border-neutral-300 border-b border-neutral-300 bg-neutral-50 hover:bg-neutral-200 active:bg-neutral-300 transition-colors group/th select-none ${
+          hasColumnFilter ? 'cursor-pointer' : 'cursor-default'
+        }`}
+      >
+        {/* Windows Explorer Top Sort Indicator (Centered at top edge) */}
+        {isSorted && (
+          <div className="absolute top-[1.5px] left-1/2 -translate-x-1/2 text-neutral-700 pointer-events-none flex justify-center z-10">
+            <svg
+              width="9"
+              height="5"
+              viewBox="0 0 9 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              {sortAsc ? (
+                <path d="M1 4L4.5 1L8 4" />
+              ) : (
+                <path d="M1 1L4.5 4L8 1" />
+              )}
+            </svg>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between h-full w-full">
+          {/* Left: Optional checkbox + title */}
+          <div className="flex items-center gap-2 truncate pr-1">
+            {prefix}
+            <span className="truncate font-medium text-neutral-700 group-hover/th:text-neutral-900">
+              {title}
+            </span>
+          </div>
+
+          {/* Right: Windows Explorer Fast Filtering Dropdown Chevron & Divider */}
+          {hasColumnFilter && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setOpenFilter((prev) =>
+                prev?.field === field
+                  ? null
+                  : {
+                      field,
+                      position: {
+                        top: rect.bottom + 2,
+                        left: Math.max(10, rect.right - 155),
+                      },
+                    }
+              );
+            }}
+            title="Fast filter by column"
+            className={`flex items-center pl-1 shrink-0 transition-opacity hover:!opacity-100 ${
+              hasActiveFilter
+                ? 'opacity-100 text-brand'
+                : 'opacity-0 group-hover/th:opacity-60 text-neutral-500'
+            }`}
+          >
+            <div className="w-[1px] h-3.5 bg-neutral-400 mr-1.5 shrink-0" />
+            <svg
+              width="8"
+              height="5"
+              viewBox="0 0 8 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="shrink-0"
+            >
+              <path d="M1 1L4 4L7 1" />
+            </svg>
+            {hasActiveFilter && (
+              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-brand" />
+            )}
+          </div>
+          )}
+        </div>
+
+        {/* Column Resizer Handle */}
+        <div
+          onMouseDown={(e) => handleResizeStart(colKey, e)}
+          onDoubleClick={(e) => handleResetWidth(colKey, e)}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-brand/80 active:bg-brand z-30 transition-colors"
+          title="Drag to resize, double-click to reset"
+        />
+      </th>
+    );
   };
 
-  const formatSpeed = (bps?: number) => {
-    if (!bps || bps <= 0) return '';
-    const kb = bps / 1024;
-    if (kb >= 1024) return `${(kb / 1024).toFixed(2)} MB/s`;
-    return `${kb.toFixed(1)} KB/s`;
-  };
-
-  const formatEta = (seconds?: number) => {
-    if (!seconds || seconds <= 0 || !isFinite(seconds)) return '';
-    if (seconds < 60) return `${Math.round(seconds)} sec`;
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.round(seconds % 60);
-    return `${mins} min ${secs} sec`;
-  };
-
-  const formatStatus = (d: DownloadItem) => {
-    const pct = d.totalBytes > 0
-      ? Math.min(100, Math.round((d.downloadedBytes / d.totalBytes) * 100))
-      : 0;
-
-    switch (d.status) {
-      case 'downloading':
-        return <span className="text-[#2563eb] font-semibold">Downloading ({pct}%)</span>;
-      case 'completed':
-        return <span className="text-[#16a34a] font-medium">Complete</span>;
-      case 'paused':
-        return <span className="text-[#d97706]">Paused ({pct}%)</span>;
-      case 'error':
-        return <span className="text-[#dc2626]">Error</span>;
-      case 'queued':
-        return <span className="text-[#64748b]">Queued</span>;
-      default:
-        return <span className="capitalize">{d.status}</span>;
-    }
-  };
+  const selectAllCheckbox = (
+    <div 
+      onClick={handleToggleSelectAll}
+      className={`w-4 h-4 flex items-center justify-center cursor-pointer shrink-0 transition-all ${
+        isAllSelected
+          ? 'ndm-checkbox-3d-checked text-white opacity-100 scale-105'
+          : isPartiallySelected
+          ? 'ndm-checkbox-3d-indeterminate text-white opacity-100'
+          : 'ndm-checkbox-3d-unchecked opacity-0 group-hover/th:opacity-100 hover:border-brand'
+      }`}
+      title="Select all"
+    >
+      {isAllSelected && (
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.8" strokeLinecap="round" strokeLinejoin="round" className="filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+      {isPartiallySelected && (
+        <div className="w-2 h-0.5 bg-white rounded-xs shadow-xs" />
+      )}
+    </div>
+  );
 
   return (
-    <div className="flex-1 bg-[#ffffff] overflow-auto select-none font-sans text-[12px]">
-      <table className="w-full border-collapse text-left">
-        <thead className="sticky top-0 bg-[#f1f5f9] border-b border-[#cbd5e1] text-[#475569] font-medium shadow-xs z-10 group/header">
+    <div className="flex-1 bg-white overflow-auto select-none font-sans text-[12px] relative">
+      <table 
+        className="border-collapse text-left table-fixed" 
+        style={{ minWidth: '100%', width: `${totalTableWidth}px` }}
+      >
+        <colgroup>
+          <col style={{ width: `${colWidths.filename}px` }} />
+          <col style={{ width: `${colWidths.totalBytes}px` }} />
+          <col style={{ width: `${colWidths.status}px` }} />
+          <col style={{ width: `${colWidths.etaSeconds}px` }} />
+          <col style={{ width: `${colWidths.speedBps}px` }} />
+          <col style={{ width: `${colWidths.queue}px` }} />
+          <col style={{ width: `${colWidths.createdAt}px` }} />
+          <col style={{ width: `${colWidths.url}px` }} />
+        </colgroup>
+
+        <thead className="sticky top-0 z-20 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
           <tr>
-            {/* File Name Column with Windows File Explorer Select-All Checkbox */}
-            <th
-              onClick={() => handleSort('filename')}
-              className="py-1 px-2 cursor-pointer hover:bg-[#e2e8f0] border-r border-[#cbd5e1] w-[290px]"
-            >
-              <div className="flex items-center gap-2">
-                {/* Header Checkbox */}
-                <div 
-                  onClick={handleToggleSelectAll}
-                  className={`w-4 h-4 flex items-center justify-center cursor-pointer transition-all ${
-                    isAllSelected
-                      ? 'ndm-checkbox-3d-checked text-white opacity-100 scale-105'
-                      : isPartiallySelected
-                      ? 'ndm-checkbox-3d-indeterminate text-white opacity-100'
-                      : 'ndm-checkbox-3d-unchecked opacity-0 group-hover/header:opacity-100 hover:border-[#005a9e]'
-                  }`}
-                  title="Select all"
-                >
-                  {isAllSelected && (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.8" strokeLinecap="round" strokeLinejoin="round" className="filter drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                  {isPartiallySelected && (
-                    <div className="w-2 h-0.5 bg-white rounded-xs shadow-xs" />
-                  )}
-                </div>
-                <span>File Name {sortField === 'filename' && (sortAsc ? '▲' : '▼')}</span>
-              </div>
-            </th>
-            <th
-              onClick={() => handleSort('totalBytes')}
-              className="py-1 px-3 cursor-pointer hover:bg-[#e2e8f0] border-r border-[#cbd5e1] w-[90px]"
-            >
-              Size {sortField === 'totalBytes' && (sortAsc ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleSort('status')}
-              className="py-1 px-3 cursor-pointer hover:bg-[#e2e8f0] border-r border-[#cbd5e1] w-[130px]"
-            >
-              Status {sortField === 'status' && (sortAsc ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleSort('etaSeconds')}
-              className="py-1 px-3 cursor-pointer hover:bg-[#e2e8f0] border-r border-[#cbd5e1] w-[90px]"
-            >
-              Time left {sortField === 'etaSeconds' && (sortAsc ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleSort('speedBps')}
-              className="py-1 px-3 cursor-pointer hover:bg-[#e2e8f0] border-r border-[#cbd5e1] w-[100px]"
-            >
-              Transfer rate {sortField === 'speedBps' && (sortAsc ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleSort('createdAt')}
-              className="py-1 px-3 cursor-pointer hover:bg-[#e2e8f0] border-r border-[#cbd5e1] w-[130px]"
-            >
-              Last Try Date {sortField === 'createdAt' && (sortAsc ? '▲' : '▼')}
-            </th>
-            <th
-              onClick={() => handleSort('url')}
-              className="py-1 px-3 cursor-pointer hover:bg-[#e2e8f0]"
-            >
-              Description {sortField === 'url' && (sortAsc ? '▲' : '▼')}
-            </th>
+            {renderHeaderCell('filename', 'filename', 'File Name', selectAllCheckbox)}
+            {renderHeaderCell('totalBytes', 'totalBytes', 'Size')}
+            {renderHeaderCell('status', 'status', 'Status')}
+            {renderHeaderCell('etaSeconds', 'etaSeconds', 'Time left')}
+            {renderHeaderCell('speedBps', 'speedBps', 'Transfer rate')}
+            {renderHeaderCell('queue', 'queue', 'Queue')}
+            {renderHeaderCell('createdAt', 'createdAt', 'Last Try Date')}
+            {renderHeaderCell('url', 'url', 'Description')}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#f1f5f9]">
+
+        <tbody className="divide-y divide-neutral-100">
           {sortedDownloads.map((d) => {
             const isSelected = selectedIds.has(d.id);
             const hasAnySelection = selectedIds.size > 0;
@@ -222,12 +412,12 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
                 onContextMenu={(e) => onContextMenu(d, e)}
                 className={`cursor-pointer transition-none group/row ${
                   isSelected
-                    ? 'bg-[#cde8ff] border-y border-[#70baff] text-[#0f172a]'
-                    : 'hover:bg-[#eef6ff] text-[#1e293b] border-y border-transparent'
+                    ? 'bg-brand-tint border-y border-brand-tintEdge text-neutral-900'
+                    : 'hover:bg-brand-tint text-neutral-800 border-y border-transparent'
                 }`}
               >
-                {/* File Name with Windows File Explorer Item Checkbox (appears on hover or when selected) */}
-                <td className="py-1 px-2 truncate max-w-[290px]">
+                {/* File Name */}
+                <td className="py-1 px-2 truncate whitespace-nowrap overflow-hidden border-r border-neutral-100">
                   <div className="flex items-center gap-2 truncate">
                     {/* Item Checkbox */}
                     <div
@@ -236,8 +426,8 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
                         isSelected
                           ? 'ndm-checkbox-3d-checked text-white opacity-100 shadow-xs'
                           : hasAnySelection
-                          ? 'ndm-checkbox-3d-unchecked opacity-50 hover:opacity-100 hover:border-[#005a9e]'
-                          : 'ndm-checkbox-3d-unchecked opacity-0 group-hover/row:opacity-100 hover:border-[#005a9e]'
+                          ? 'ndm-checkbox-3d-unchecked opacity-50 hover:opacity-100 hover:border-brand'
+                          : 'ndm-checkbox-3d-unchecked opacity-0 group-hover/row:opacity-100 hover:border-brand'
                       }`}
                       title={isSelected ? 'Deselect' : 'Select'}
                     >
@@ -248,33 +438,57 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
                       )}
                     </div>
 
-                    {/* Windows Application File Icon */}
-                    <FileIcon filename={d.filename} className="w-4 h-4 shrink-0" />
+                    {/* File Icon */}
+                    <FileIcon filename={d.filename} filePath={d.destinationPath} className="w-4 h-4 shrink-0" />
                     <span className="truncate font-medium">{d.filename}</span>
+                    {d.autoStreams && d.status !== 'error' && (
+                      <span
+                        className="ml-1.5 shrink-0 rounded bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-[1px] text-[10px] font-semibold"
+                        title={describeAutoStreams(d) || 'Auto: the app picks the best number of connections for this file'}
+                      >
+                        {d.status === 'downloading' || d.status === 'paused'
+                          ? `Auto · ${d.connections}`
+                          : 'Auto'}
+                      </span>
+                    )}
                   </div>
                 </td>
 
-                <td className="py-1 px-3 whitespace-nowrap">
+                <td className="py-1 px-2.5 whitespace-nowrap truncate overflow-hidden border-r border-neutral-100">
                   {formatSize(d.totalBytes)}
                 </td>
 
-                <td className="py-1 px-3 whitespace-nowrap">
-                  {formatStatus(d)}
+                <td className="py-1 px-2.5 whitespace-nowrap truncate overflow-hidden border-r border-neutral-100">
+                  <DownloadStatusBadge status={d.status} downloadedBytes={d.downloadedBytes} totalBytes={d.totalBytes} />
                 </td>
 
-                <td className="py-1 px-3 whitespace-nowrap">
+                <td className="py-1 px-2.5 whitespace-nowrap truncate overflow-hidden border-r border-neutral-100">
                   {formatEta(d.etaSeconds)}
                 </td>
 
-                <td className="py-1 px-3 whitespace-nowrap">
+                <td className="py-1 px-2.5 whitespace-nowrap truncate overflow-hidden border-r border-neutral-100">
                   {formatSpeed(d.speedBps)}
                 </td>
 
-                <td className="py-1 px-3 whitespace-nowrap opacity-80 text-[11px]">
-                  {new Date(d.createdAt || Date.now()).toLocaleDateString()} {new Date(d.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {/* Q column: which queue this file belongs to. */}
+                <td className="py-1 px-2.5 whitespace-nowrap truncate overflow-hidden border-r border-neutral-100 text-[11px]">
+                  {queueAssignments[d.id] ? (
+                    <span
+                      className="inline-block max-w-full px-1.5 py-[1px] rounded-[2px] bg-neutral-100 border border-neutral-300 text-neutral-700 truncate"
+                      title={`Queue: ${queueNames[queueAssignments[d.id]] || queueAssignments[d.id]}`}
+                    >
+                      {queueNames[queueAssignments[d.id]] || queueAssignments[d.id]}
+                    </span>
+                  ) : (
+                    <span className="text-neutral-300">-</span>
+                  )}
                 </td>
 
-                <td className="py-1 px-3 truncate max-w-[300px] opacity-75 font-mono text-[11px]">
+                <td className="py-1 px-2.5 whitespace-nowrap truncate overflow-hidden opacity-80 text-[11px] border-r border-neutral-100">
+                  {formatDateTime(d.createdAt)}
+                </td>
+
+                <td className="py-1 px-2.5 truncate whitespace-nowrap overflow-hidden opacity-75 font-mono text-[11px]">
                   {d.url}
                 </td>
               </tr>
@@ -282,6 +496,18 @@ export const DownloadTable: React.FC<DownloadTableProps> = ({
           })}
         </tbody>
       </table>
+
+      {/* Windows File Explorer Column Filter Dropdown */}
+      {openFilter && (
+        <ColumnFilterDropdown
+          field={openFilter.field}
+          selectedFilterIds={columnFilters[openFilter.field] || new Set()}
+          onToggleFilter={(fId) => handleToggleColumnFilter(openFilter.field, fId)}
+          onClearFilters={() => handleClearColumnFilters(openFilter.field)}
+          onClose={() => setOpenFilter(null)}
+          position={openFilter.position}
+        />
+      )}
     </div>
   );
 };

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="nogadexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E11D2A"/>
+      <stop offset="50%" stop-color="#C8102E"/>
+      <stop offset="100%" stop-color="#960B1E"/>
+    </linearGradient>
+    <radialGradient id="gloss" cx="30%" cy="20%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#C8102E" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background Squircle with Gradient & Shadow -->
+  <rect x="32" y="32" width="448" height="448" rx="128" fill="url(#nogadexGrad)" filter="url(#dropShadow)"/>
+  
+  <!-- Subtle top-left light highlight -->
+  <rect x="32" y="32" width="448" height="448" rx="128" fill="url(#gloss)"/>
+  
+  <!-- Stylized white 'n' matching official logo -->
+  <path d="M156 168 C156 155 166 146 179 146 L195 146 C208 146 218 156 218 168 L218 206 C236 170 274 144 318 144 C386 144 416 190 416 264 L416 348 C416 361 405 372 392 372 L374 372 C361 372 350 361 350 348 L350 268 C350 216 332 198 290 198 C246 198 218 232 218 288 L218 348 C218 361 207 372 194 372 L176 372 C163 372 156 361 156 348 Z" fill="#FFFFFF"/>
+</svg>

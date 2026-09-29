@@ -110,7 +110,7 @@ export class ChunkOptimizer {
   /**
    * Feedback loop from completed or failed chunks
    */
-  public recordChunkOutcome(success: boolean, durationMs?: number, bytes?: number): void {
+  public recordChunkOutcome(success: boolean, _durationMs?: number, _bytes?: number): void {
     if (success) {
       this.consecutiveSuccesses++;
       this.consecutiveFailures = 0;

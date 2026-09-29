@@ -1,5 +1,5 @@
 import { HistoryExportEngine } from './history_export_engine';
-import { DownloadItem } from './types';
+import { DownloadItem } from '../src/types/download';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -20,11 +20,13 @@ async function runHistoryExportTests() {
       url: 'https://example.com/archive.zip',
       filename: 'archive.zip',
       status: 'completed',
+      etaSeconds: 0,
+      connections: 1,
+      resumable: false,
       category: 'compressed',
       totalBytes: 104857600,
       downloadedBytes: 104857600,
-      speed: 0,
-      progress: 100,
+      speedBps: 0,
       destinationPath: 'C:\\Downloads\\Compressed\\archive.zip',
       chunks: [],
       createdAt: 100000,
@@ -35,11 +37,13 @@ async function runHistoryExportTests() {
       url: 'https://example.com/document.pdf',
       filename: 'document.pdf',
       status: 'downloading',
+      etaSeconds: 25,
+      connections: 4,
+      resumable: true,
       category: 'documents',
       totalBytes: 5242880,
       downloadedBytes: 2621440,
-      speed: 1024000,
-      progress: 50,
+      speedBps: 1024000,
       destinationPath: 'C:\\Downloads\\Documents\\document.pdf',
       chunks: [],
       createdAt: 110000,
@@ -73,8 +77,8 @@ async function runHistoryExportTests() {
   assert(importedJson.length === 2, 'JSON import extracted 2 items');
   assert(importedJson[1].filename === 'document.pdf', 'Imported JSON filename matches');
 
-  // Test 5: IDM .ef2 Export & Import
-  console.log('[Test 5] Testing IDM .ef2 Export & Import Roundtrip...');
+  // Test 5: Legacy .ef2 Export & Import
+  console.log('[Test 5] Testing .ef2 Export & Import Roundtrip...');
   const ef2Str = engine.exportToEf2(mockItems);
   assert(ef2Str.includes('<') && ef2Str.includes('file: archive.zip'), 'EF2 export formatted correctly');
   const importedEf2 = engine.importFromEf2(ef2Str);

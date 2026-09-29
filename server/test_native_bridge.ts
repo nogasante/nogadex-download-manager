@@ -1,4 +1,4 @@
-import { NativeBridgeManager, NOGADEX_LOCAL_TOKEN } from './native_bridge';
+import { NativeBridgeManager, NDM_LOCAL_TOKEN } from './native_bridge';
 import { DownloadEngine } from './engine';
 import { RulesEngine } from './rules_engine';
 import { SettingsManager } from './settings_store';
@@ -24,7 +24,7 @@ async function runNativeBridgeTests() {
     console.log('[Test 1] Testing Strict Loopback & Token Validation...');
     const validReq: any = {
       ip: '127.0.0.1',
-      headers: { 'x-nogadex-token': NOGADEX_LOCAL_TOKEN },
+      headers: { 'x-ndm-token': NDM_LOCAL_TOKEN },
       socket: { remoteAddress: '127.0.0.1' },
     };
     const check1 = bridge.validateRequest(validReq);
@@ -32,7 +32,7 @@ async function runNativeBridgeTests() {
 
     const foreignReq: any = {
       ip: '192.168.1.100',
-      headers: { 'x-nogadex-token': NOGADEX_LOCAL_TOKEN },
+      headers: { 'x-ndm-token': NDM_LOCAL_TOKEN },
       socket: { remoteAddress: '192.168.1.100' },
     };
     const check2 = bridge.validateRequest(foreignReq);
@@ -40,7 +40,7 @@ async function runNativeBridgeTests() {
 
     const invalidTokenReq: any = {
       ip: '127.0.0.1',
-      headers: { 'x-nogadex-token': 'wrong_token' },
+      headers: { 'x-ndm-token': 'wrong_token' },
       socket: { remoteAddress: '127.0.0.1' },
     };
     const check3 = bridge.validateRequest(invalidTokenReq);

@@ -4,8 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
-import { createSSRFSafeLookup, DownloadEngine, validateUrl } from './engine';
+import { validateUrl } from './engine';
 
 function assert(condition: boolean, code: string, message: string) {
   if (!condition) {
@@ -24,13 +23,12 @@ async function runReleaseGateTests() {
   // GATE-01: Socket-Level DNS Rebinding / SSRF Resolution Interception
   // ---------------------------------------------------------------------------
   {
-    const lookupGuard = createSSRFSafeLookup(false); // production mode
-
+    
     // 1. Simulated lookup resolving to cloud metadata IP
     let caughtErrMeta = false;
     await new Promise<void>((resolve) => {
       // Mock lookup call returning 169.254.169.254
-      const customGuard = (hostname: string, options: any, cb: any) => {
+      const customGuard = (_hostname: string, _options: any, cb: any) => {
         const ipValidation = validateUrl(`http://169.254.169.254`, false);
         if (!ipValidation.valid) {
           caughtErrMeta = true;
@@ -45,7 +43,7 @@ async function runReleaseGateTests() {
     // 2. Simulated lookup resolving to loopback 127.0.0.1
     let caughtErrLoop = false;
     await new Promise<void>((resolve) => {
-      const customGuard = (hostname: string, options: any, cb: any) => {
+      const customGuard = (_hostname: string, _options: any, cb: any) => {
         const ipValidation = validateUrl(`http://127.0.0.1`, false);
         if (!ipValidation.valid) {
           caughtErrLoop = true;

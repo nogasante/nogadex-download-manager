@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Changelog — NDM</title>
+<meta name="description" content="Every NDM release: what changed, version by version.">
+<meta name="theme-color" content="#005a9e">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" href="assets/favicon.ico">
+<script>/* theme before first paint — no flash */
+(function(){var s=localStorage.getItem('ndm-theme');document.documentElement.style.colorScheme=(s==='light'||s==='dark')?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');})();</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="site-nav"></header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <h2 style="text-align:center">Changelog</h2>
+      <p class="dl-sub">Release history and changes in each version.</p>
+
+      <!-- rendered by site.js from the project's releases; nothing hardcoded here -->
+      <div class="log-list" id="changelog-list" aria-live="polite">
+        <p class="log-more">Loading releases</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/partials.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

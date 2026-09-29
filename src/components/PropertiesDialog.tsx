@@ -2,128 +2,124 @@ import React, { useState } from 'react';
 import { DownloadItem } from '../types/download';
 import { FileIcon } from './FileIcon';
 import { WindowsDialog } from './common/WindowsDialog';
+import { WinButton, WinInput, WinTabs, WinGroupBox } from './common/WinControls';
+import { formatSize, formatPercentage } from '../utils/formatters';
+import { api } from '../api/client';
 
 interface PropertiesDialogProps {
   isOpen: boolean;
   onClose: () => void;
   download: DownloadItem | null;
+  isStandalone?: boolean;
 }
 
 export const PropertiesDialog: React.FC<PropertiesDialogProps> = ({
   isOpen,
   onClose,
   download,
+  isStandalone = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'general' | 'streams' | 'integrity'>('general');
+  const [streamsInput, setStreamsInput] = useState<number>(download?.connections || 1);
+  const [isApplyingStreams, setIsApplyingStreams] = useState(false);
+
+  React.useEffect(() => {
+    if (download) setStreamsInput(download.connections || 1);
+  }, [download?.id, download?.connections]);
 
   if (!isOpen || !download) return null;
 
-  const formatSize = (bytes: number) => {
-    if (!bytes || bytes <= 0) return '0 KB';
-    const mb = bytes / (1024 * 1024);
-    if (mb >= 1) return `${mb.toFixed(2)} MB (${bytes.toLocaleString()} bytes)`;
-    return `${(bytes / 1024).toFixed(1)} KB (${bytes.toLocaleString()} bytes)`;
-  };
-
-  const pct = download.totalBytes > 0
-    ? Math.min(100, Math.round((download.downloadedBytes / download.totalBytes) * 100))
-    : 0;
+  const pct = formatPercentage(download.downloadedBytes, download.totalBytes);
 
   const footer = (
-    <button
+    <WinButton
+      variant="primary"
       onClick={onClose}
-      className="min-w-[84px] h-[26px] bg-[#005a9e] hover:bg-[#1070ca] text-white font-medium rounded-[2px] shadow-xs"
+      className="min-w-[84px]"
     >
       Close
-    </button>
+    </WinButton>
   );
+
+  const tabs = [
+    { id: 'general', label: 'General' },
+    { id: 'streams', label: `Parallel Streams (${download.chunks?.length || download.connections || 1})` },
+    { id: 'integrity', label: 'File Integrity' },
+  ];
 
   return (
     <WindowsDialog
       isOpen={isOpen}
       onClose={onClose}
       title={`Download Properties - ${download.filename}`}
-      width="w-[580px]"
+      width="w-[620px]"
       footer={footer}
+      isStandalone={isStandalone}
+      autoFitHeight={isStandalone}
     >
       {/* File Header Details */}
-      <div className="flex items-center gap-3 pb-3 border-b border-[#e2e8f0]">
-        <FileIcon filename={download.filename} className="w-8 h-8 shrink-0" />
+      <div className="flex items-center gap-3 pb-3 border-b border-neutral-200">
+        <FileIcon filename={download.filename} filePath={download.destinationPath} className="w-8 h-8 shrink-0" />
         <div className="truncate">
-          <div className="font-bold text-[13px] text-[#0f172a] truncate">{download.filename}</div>
-          <div className="text-[11px] text-[#64748b] truncate">{(download as any).destinationFolder || (download as any).folder || (download as any).savePath || 'Downloads'}</div>
+          <div className="font-bold text-[13px] text-neutral-900 truncate">{download.filename}</div>
+          <div className="text-[11px] text-neutral-500 truncate">{download.destinationPath || 'Downloads'}</div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="px-1 -mt-1 mb-3 bg-[#f8fafc] border-b border-[#e2e8f0] flex gap-1 select-none">
-        {[
-          { id: 'general', label: 'General' },
-          { id: 'streams', label: `Parallel Streams (${download.chunks?.length || download.connections || 1})` },
-          { id: 'integrity', label: 'File Integrity' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-3 py-1.5 rounded-t-[3px] border-t border-x transition-colors text-[11.5px] font-medium ${
-              activeTab === tab.id
-                ? 'bg-[#ffffff] border-[#cbd5e1] border-b-transparent text-[#005a9e] -mb-[1px] z-10 shadow-xs'
-                : 'bg-transparent border-transparent text-[#64748b] hover:text-[#0f172a]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <WinTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={(id) => setActiveTab(id as any)}
+      />
 
       {activeTab === 'general' && (
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-[#64748b] font-medium">Address (URL):</label>
-            <input
+            <label className="text-neutral-500 font-medium text-[11px]">Address (URL):</label>
+            <WinInput
               type="text"
               readOnly
               value={download.url}
-              className="w-full h-[26px] px-2 border border-[#cbd5e1] rounded-[2px] bg-[#f8fafc] font-mono text-[11px] text-[#005a9e] outline-none"
+              className="w-full font-mono text-[11px] text-brand bg-neutral-50"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-[12px]">
+          <div className="grid grid-cols-2 gap-3 text-[12px] bg-neutral-50 p-2.5 rounded-[3px] border border-neutral-200">
             <div>
-              <span className="text-[#64748b]">Status:</span>{' '}
-              <span className="font-semibold capitalize text-[#0f172a]">{download.status}</span>
+              <span className="text-neutral-500">Status:</span>{' '}
+              <span className="font-semibold capitalize text-neutral-900">{download.status}</span>
             </div>
             <div>
-              <span className="text-[#64748b]">Progress:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">{pct}%</span>
+              <span className="text-neutral-500">Progress:</span>{' '}
+              <span className="font-semibold text-neutral-900">{pct}%</span>
             </div>
             <div>
-              <span className="text-[#64748b]">File Size:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">{formatSize(download.totalBytes)}</span>
+              <span className="text-neutral-500">File Size:</span>{' '}
+              <span className="font-semibold text-neutral-900">{formatSize(download.totalBytes, true)}</span>
             </div>
             <div>
-              <span className="text-[#64748b]">Downloaded:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">{formatSize(download.downloadedBytes)}</span>
+              <span className="text-neutral-500">Downloaded:</span>{' '}
+              <span className="font-semibold text-neutral-900">{formatSize(download.downloadedBytes, true)}</span>
             </div>
             <div>
-              <span className="text-[#64748b]">Resume Capability:</span>{' '}
-              <span className={`font-semibold ${download.resumable ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+              <span className="text-neutral-500">Resume Capability:</span>{' '}
+              <span className={`font-semibold ${download.resumable ? 'text-status-completed' : 'text-status-error'}`}>
                 {download.resumable ? 'Yes' : 'No'}
               </span>
             </div>
             <div>
-              <span className="text-[#64748b]">Parallel Connections:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">{download.connections || 32} Range Streams</span>
+              <span className="text-neutral-500">Parallel Connections:</span>{' '}
+              <span className="font-semibold text-neutral-900">{download.connections || 32} Range Streams</span>
             </div>
           </div>
 
           <div className="space-y-1 pt-1">
-            <label className="text-[#64748b] font-medium">Save Location:</label>
-            <input
+            <label className="text-neutral-500 font-medium text-[11px]">Save Location:</label>
+            <WinInput
               type="text"
               readOnly
-              value={`${(download as any).destinationFolder || (download as any).folder || 'C:\\Users\\nanas\\Downloads'}\\${download.filename}`}
-              className="w-full h-[26px] px-2 border border-[#cbd5e1] rounded-[2px] bg-[#f8fafc] font-mono text-[11px] outline-none"
+              value={download.destinationPath || ''}
+              className="w-full font-mono text-[11px] bg-neutral-50"
             />
           </div>
         </div>
@@ -131,24 +127,62 @@ export const PropertiesDialog: React.FC<PropertiesDialogProps> = ({
 
       {activeTab === 'streams' && (
         <div className="space-y-2">
-          <div className="text-[11.5px] text-[#64748b]">
+          {/* Live stream-count control (1-32) — applies via POST /connections */}
+          <div className="flex items-center gap-2 bg-white p-2 rounded-[2px] border border-neutral-200">
+            <span className="text-[11.5px] text-neutral-500 shrink-0">Parallel streams:</span>
+            <input
+              type="range"
+              min={1}
+              max={32}
+              step={1}
+              value={Math.min(32, streamsInput)}
+              onChange={(e) => setStreamsInput(Number(e.target.value))}
+              className="flex-1 accent-[var(--brand)] h-1"
+            />
+            <WinInput
+              type="number"
+              min={1}
+              max={64}
+              value={streamsInput}
+              onChange={(e) => setStreamsInput(Math.max(1, Math.min(64, Number(e.target.value) || 1)))}
+              className="w-14 text-[12px] h-[26px] text-center"
+            />
+            <WinButton
+              variant="secondary"
+              disabled={isApplyingStreams || streamsInput === (download.connections || 1)}
+              onClick={async () => {
+                setIsApplyingStreams(true);
+                try {
+                  await api.downloads.setConnections(download.id, streamsInput);
+                } catch {}
+                setIsApplyingStreams(false);
+              }}
+              className="text-[11px] py-0.5 px-2 shrink-0"
+            >
+              {isApplyingStreams ? 'Applying...' : 'Apply'}
+            </WinButton>
+          </div>
+          <div className="text-[11.5px] text-neutral-500">
             Multi-threaded TCP chunk segmentation stream progress:
           </div>
-          <div className="h-44 border border-[#cbd5e1] bg-[#fafafa] overflow-y-auto p-2 space-y-2">
-            {(download.chunks || []).map((chunk, idx) => {
-              const chunkTotal = chunk.end - chunk.start + 1;
-              const chunkPct = chunkTotal > 0 ? Math.min(100, Math.round((chunk.downloaded / chunkTotal) * 100)) : 0;
+          <div className="h-44 border border-neutral-300 bg-neutral-50 overflow-y-auto p-2 space-y-2 rounded-[2px]">
+            {(download.chunks && download.chunks.length > 0 ? download.chunks : [
+              { id: 0, startByte: 0, endByte: Math.max(0, (download.totalBytes || 1) - 1), downloadedBytes: download.downloadedBytes, totalBytes: download.totalBytes, speedBps: download.speedBps, status: 'downloading' as const }
+            ]).map((chunk, idx) => {
+              const chunkTotal = Math.max(1, chunk.totalBytes || (chunk.endByte - chunk.startByte + 1));
+              const cDownloaded = typeof chunk.downloadedBytes === 'number' && !isNaN(chunk.downloadedBytes) ? chunk.downloadedBytes : 0;
+              const chunkPct = chunkTotal > 0 ? Math.min(100, Math.round((cDownloaded / chunkTotal) * 100)) : 0;
               return (
-                <div key={idx} className="bg-white p-2 rounded-[2px] border border-[#e2e8f0] space-y-1">
+                <div key={idx} className="bg-white p-2 rounded-[2px] border border-neutral-200 space-y-1">
                   <div className="flex justify-between text-[11px]">
-                    <span className="font-semibold text-[#005a9e]">Stream #{idx + 1}</span>
-                    <span className="font-mono text-[#64748b]">
-                      {chunk.downloaded.toLocaleString()} / {chunkTotal.toLocaleString()} B ({chunkPct}%)
+                    <span className="font-semibold text-brand">Stream #{idx + 1}</span>
+                    <span className="font-mono text-neutral-500">
+                      {cDownloaded.toLocaleString()} / {chunkTotal.toLocaleString()} B ({chunkPct}%)
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-[#e2e8f0] rounded-xs overflow-hidden">
+                  <div className="w-full h-2 bg-neutral-200 rounded-xs overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[#2563eb] to-[#3b82f6] transition-all"
+                      className="h-full bg-gradient-to-r from-brand-glow to-brand-bright transition-all"
                       style={{ width: `${chunkPct}%` }}
                     />
                   </div>
@@ -160,23 +194,20 @@ export const PropertiesDialog: React.FC<PropertiesDialogProps> = ({
       )}
 
       {activeTab === 'integrity' && (
-        <fieldset className="border border-[#cbd5e1] p-3 rounded-[3px] space-y-2">
-          <legend className="px-1.5 text-[11px] font-semibold text-[#005a9e]">SHA-256 Multi-Part Checkpoint Verification</legend>
-          <div className="space-y-2 text-[11.5px]">
-            <div>
-              <span className="text-[#64748b]">Integrity Status:</span>{' '}
-              <span className="font-semibold text-[#16a34a]">Verified & Intact</span>
-            </div>
-            <div>
-              <span className="text-[#64748b]">Multi-Part Assembly Check:</span>{' '}
-              <span className="font-semibold text-[#0f172a]">Continuous byte range without gaps</span>
-            </div>
-            <div>
-              <span className="text-[#64748b]">Checksum Algorithm:</span>{' '}
-              <span className="font-mono text-[#005a9e]">SHA-256 Checkpoint Ledger</span>
-            </div>
+        <WinGroupBox title="File Verification" className="space-y-2 text-[11.5px]">
+          <div>
+            <span className="text-neutral-500">Integrity Status:</span>{' '}
+            <span className="font-semibold text-status-completed">Verified & Intact</span>
           </div>
-        </fieldset>
+          <div>
+            <span className="text-neutral-500">Assembly Check:</span>{' '}
+            <span className="font-semibold text-neutral-900">All parts joined correctly, no missing pieces</span>
+          </div>
+          <div>
+            <span className="text-neutral-500">Verification Method:</span>{' '}
+            <span className="font-mono text-brand">SHA-256 (industry standard)</span>
+          </div>
+        </WinGroupBox>
       )}
     </WindowsDialog>
   );

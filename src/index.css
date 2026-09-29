@@ -2,21 +2,167 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Design tokens — keep in sync with tailwind.config.js (same values, CSS side)
+   ========================================================================== */
+/* ==========================================================================
+   APPEARANCE — theme, UI scale and icon style live on <html>, set by
+   src/config/appearance.ts (Settings → Appearance, persisted per user).
+   Every color in tailwind.config.js resolves to a variable below; the
+   .theme-dark block swaps the values, so no component needs theme logic.
+   ========================================================================== */
+html {
+  /* UI scale: Settings → Appearance → Zoom. Scales px-based utilities too. */
+  zoom: var(--ndm-ui-zoom, 1);
+}
+
+/* Anchor the app shell with percentages, NOT viewport units: CSS zoom scales
+   percentage sizes with the rest of the UI but leaves 100vh/100vw physical,
+   so h-screen/w-screen roots overflow the window at Large/Extra Large zoom
+   (status bar clipped at the bottom, toolbar cut at the right). */
+html, body, #root {
+  height: 100%;
+}
+
+/* ---- Icon style (Appearance → Icons) ----
+   color: the shipped glossy 3D set (default). mono: ink-friendly grayscale.
+   contrast: punchier saturation + shadow for dark rooms / low vision. */
+html[data-icons='mono'] svg,
+html[data-icons='mono'] img[src^='data:'] {
+  filter: grayscale(1) contrast(1.05) opacity(.92);
+}
+html[data-icons='contrast'] svg,
+html[data-icons='contrast'] img[src^='data:'] {
+  filter: saturate(1.3) contrast(1.18) drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
+}
+
 :root {
-  --ndm-blue: #2563eb;
-  --ndm-blue-light: #3b82f6;
-  --ndm-blue-dark: #1d4ed8;
-  --ndm-charcoal: #1e293b;
-  --ndm-bg: #f8fafc;
-  --ndm-surface: #ffffff;
-  --ndm-border: #e2e8f0;
+  /* surfaces the dark theme needs beyond the ramp */
+  --neutral-0: #ffffff;   /* neumorphic button face */
+  --panel: #ffffff;       /* dialog body / menus / table / inputs */
+
+  /* brand: Windows accent blue */
+  --brand:          #005a9e;
+  --brand-hover:    #1070ca;
+  --brand-active:   #004578;
+  --brand-soft:     #0078d7;
+  --brand-bright:   #3b82f6;
+  --brand-glow:     #2563eb;
+  --brand-deep:     #1e40af;
+  --brand-tint:     #cde8ff;
+  --brand-tint-hover: #90c8f6;
+  --brand-tint-edge:  #70baff;
+
+  /* neutral: text + chrome grays */
+  --neutral-50:  #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1e293b;
+  --neutral-900: #0f172a;
+
+  /* status: transfer states */
+  --status-downloading:   #2563eb;
+  --status-downloading-bg:#dbeafe;
+  --status-completed:     #16a34a;
+  --status-completed-bg:  #dcfce7;
+  --status-paused:        #d97706;
+  --status-paused-bg:     #fef3c7;
+  --status-error:         #dc2626;
+  --status-error-bg:      #fee2e2;
+  --status-queued:        #64748b;
+  --status-assembling:    #7c3aed;
+
+  --danger: #e11d48;
+}
+
+/* ---- DARK THEME: same semantic roles, re-tuned values ---- */
+.theme-dark {
+  --neutral-0: #23252b;
+  --panel: #1d1f24;
+
+  --brand:          #2f81d6;
+  --brand-hover:    #4a97e5;
+  --brand-active:   #1f5fa8;
+  --brand-soft:     #3b8fd9;
+  --brand-bright:   #60a5fa;
+  --brand-glow:     #3b82f6;
+  --brand-deep:     #1e3a6e;
+  --brand-tint:     #123a5c;
+  --brand-tint-hover: #1b4a75;
+  --brand-tint-edge:  #2c6a9e;
+
+  --neutral-50:  #17181c;
+  --neutral-100: #1d1f24;
+  --neutral-200: #26282e;
+  --neutral-300: #33363d;
+  --neutral-400: #4a4e57;
+  --neutral-500: #8b919c;
+  --neutral-600: #a6acb8;
+  --neutral-700: #c6cbd4;
+  --neutral-800: #e2e5ea;
+  --neutral-900: #f2f4f7;
+
+  --status-downloading:   #60a5fa;
+  --status-downloading-bg:#172a45;
+  --status-completed:     #4ade80;
+  --status-completed-bg:  #12301f;
+  --status-paused:        #fbbf24;
+  --status-paused-bg:     #3a2a08;
+  --status-error:         #f87171;
+  --status-error-bg:      #3a1616;
+  --status-queued:        #94a3b8;
+  --status-assembling:    #a78bfa;
+
+  --danger: #f43f5e;
+}
+
+/* Physical whites: text sitting ON colored fills stays white, and the glossy
+   sheen overlay on progress cylinders too. Nothing else may hardcode these. */
+.text-white { color: #fff; }
+.bg-white\/40 { background-color: rgba(255,255,255,.4); }
+
+/* Utility classes that mean "panel surface" follow the theme. Components were
+   written against light-only Tailwind whites; in dark chrome they become the
+   dark panel so light text stays readable. */
+.theme-dark .bg-white { background-color: var(--panel); }
+.theme-dark .focus\:bg-white:focus { background-color: var(--panel); }
+.theme-dark .text-black { color: var(--neutral-800); }
+
+/* Neumorphic / glossy classes re-tuned for dark chrome */
+.theme-dark .ndm-btn-3d {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.theme-dark .ndm-btn-3d:hover {
+  box-shadow: 0 3px 6px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+.theme-dark .ndm-checkbox-3d-unchecked {
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, .6), inset -1px -1px 0 rgba(255, 255, 255, .06);
+}
+.theme-dark .ndm-progress-trench-3d {
+  border-color: #3a3e46;
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, .6), inset -1px -1px 1px rgba(255, 255, 255, .06);
+}
+.theme-dark .ndm-panel-3d {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .4);
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background-color: var(--neutral-50);
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  background-color: var(--ndm-bg);
-  color: var(--ndm-charcoal);
+  background-color: var(--neutral-50);
+  color: var(--neutral-800);
   font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, Tahoma, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -26,57 +172,57 @@ body {
 
 /* 3D Neumorphic / Tactile Button Styles */
 .ndm-btn-3d {
-  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
-  border: 1px solid #cbd5e1;
+  background: linear-gradient(180deg, var(--neutral-0, #ffffff) 0%, var(--neutral-100) 100%);
+  border: 1px solid var(--neutral-300);
   border-radius: 6px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02), inset 0 1px 0 #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02), inset 0 1px 0 var(--neutral-0, #ffffff);
   transition: all 0.1s ease-in-out;
 }
 
 .ndm-btn-3d:hover {
-  background: linear-gradient(180deg, #ffffff 0%, #e2e8f0 100%);
-  border-color: #94a3b8;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 #ffffff;
+  background: linear-gradient(180deg, var(--neutral-0, #ffffff) 0%, var(--neutral-200) 100%);
+  border-color: var(--neutral-400);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 var(--neutral-0, #ffffff);
 }
 
 .ndm-btn-3d:active {
-  background: #e2e8f0;
-  border-color: #94a3b8;
+  background: var(--neutral-200);
+  border-color: var(--neutral-400);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08);
   transform: translateY(1px);
 }
 
 .ndm-btn-3d-primary {
-  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
-  border: 1px solid #1e40af;
-  color: #ffffff;
+  background: linear-gradient(180deg, var(--brand-bright) 0%, var(--brand-glow) 100%);
+  border: 1px solid var(--brand-deep);
+  color: var(--neutral-0, #ffffff);
   border-radius: 6px;
   box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
   transition: all 0.1s ease-in-out;
 }
 
 .ndm-btn-3d-primary:hover {
-  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  background: linear-gradient(180deg, var(--brand-bright) 0%, var(--brand-glow) 100%);
   box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .ndm-btn-3d-primary:active {
-  background: #1d4ed8;
+  background: var(--brand-glow);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
   transform: translateY(1px);
 }
 
 /* 3D Inset Groove for Progress & Matrix Tracks */
 .ndm-groove-3d {
-  background: #e2e8f0;
-  border: 1px solid #cbd5e1;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 0 #ffffff;
+  background: var(--neutral-200);
+  border: 1px solid var(--neutral-300);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 0 var(--neutral-0, #ffffff);
   border-radius: 4px;
 }
 
 /* 3D Glossy Cylinder Bar (Matches 3D Funnel Blue) */
 .ndm-bar-3d-blue {
-  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 50%, #1d4ed8 100%);
+  background: linear-gradient(180deg, var(--brand-bright) 0%, var(--brand-glow) 50%, var(--brand-glow) 100%);
   box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   border-radius: 3px;
 }
@@ -89,8 +235,8 @@ body {
 
 /* 3D Soft Panel */
 .ndm-panel-3d {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--neutral-0, #ffffff);
+  border: 1px solid var(--neutral-200);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
   border-radius: 6px;
 }
@@ -98,22 +244,232 @@ body {
 
 /* Authentic Windows 3D Checkbox Styling */
 .ndm-checkbox-3d-unchecked {
-  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-  border: 1px solid #94a3b8;
+  background: linear-gradient(180deg, var(--neutral-50) 0%, var(--neutral-0, #ffffff) 100%);
+  border: 1px solid var(--neutral-400);
   box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.15), inset -1px -1px 0 rgba(255, 255, 255, 0.9);
   border-radius: 2px;
 }
 
-.ndm-checkbox-3d-checked {
-  background: linear-gradient(180deg, #2b7cd3 0%, #005a9e 55%, #004578 100%);
-  border: 1px solid #003a66;
+.ndm-checkbox-3d-checked,
+.ndm-checkbox-3d-indeterminate {
+  background: linear-gradient(180deg, var(--brand-hover) 0%, var(--brand) 55%, var(--brand-active) 100%);
+  border: 1px solid var(--brand-active);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 1px 2px rgba(0, 0, 0, 0.25);
   border-radius: 2px;
 }
 
-.ndm-checkbox-3d-indeterminate {
-  background: linear-gradient(180deg, #2b7cd3 0%, #005a9e 55%, #004578 100%);
-  border: 1px solid #003a66;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), 0 1px 2px rgba(0, 0, 0, 0.25);
-  border-radius: 2px;
+/* 3D Inset Trench for Progress Bars */
+.ndm-progress-trench-3d {
+  background: var(--neutral-200);
+  border: 1px solid #7a8a9a;
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.35), inset -1px -1px 1px rgba(255, 255, 255, 0.85);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
 }
+
+/* 3D Gloss Cylinder Blue (Active Downloading) with Smooth Animated Sheen */
+.ndm-progress-fill-3d-active {
+  background: 
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%),
+    linear-gradient(180deg, var(--brand-tint-hover) 0%, var(--brand-bright) 20%, var(--brand-soft) 48%, var(--brand) 52%, var(--brand-active) 80%, var(--brand-active) 100%);
+  background-size: 200% 100%, 100% 100%;
+  animation: ndm-shimmer-sweep 2s linear infinite;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* 3D status-cylinder art gradients: raw 6-stop scales (light -> deep). Deliberately
+   not tokenized: these are painterly stops, not semantic colors. */
+/* 3D Gloss Cylinder Green (Completed) - Smooth, Clean & Rich (No vertical lines) */
+.ndm-progress-fill-3d-complete {
+  background: linear-gradient(180deg, #bbf7d0 0%, #4ade80 20%, #16a34a 48%, #15803d 52%, #166534 80%, #14532d 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* 3D Gloss Cylinder Amber (Paused) - Smooth & Clean (No vertical lines) */
+.ndm-progress-fill-3d-paused {
+  background: linear-gradient(180deg, #fef08a 0%, #facc15 20%, #ca8a04 48%, #a16207 52%, #854d0e 80%, #713f12 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* 3D Gloss Cylinder Red (Error) - Smooth & Clean (No vertical lines) */
+.ndm-progress-fill-3d-error {
+  background: linear-gradient(180deg, #fecaca 0%, #f87171 20%, #dc2626 48%, #b91c1c 52%, #991b1b 80%, #7f1d1d 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* 3D Gloss Cylinder Indigo (Assembling) */
+.ndm-progress-fill-3d-assembling {
+  background: linear-gradient(180deg, #c7d2fe 0%, #818cf8 20%, #6366f1 48%, #4f46e5 52%, #4338ca 80%, #3730a3 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+@keyframes ndm-shimmer-sweep {
+  0% { background-position: -200% 0, 0 0, 0 0; }
+  100% { background-position: 200% 0, 0 0, 0 0; }
+}
+
+@keyframes ndm-barber-pole {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 28px 0, 0 0; }
+}
+
+/* ==========================================================================
+   SOLID FLUENT SURFACES (opaque - the window itself is opaque, so every
+   surface here is a real color, never a blur over the desktop)
+   ndm-window    : app root surface          = neutral-50
+   ndm-titlebar  : chrome bar (title/footers) = neutral-100
+   ndm-footer    : dialog footer strip       = neutral-100
+   ndm-body      : dialog content            = white
+   ndm-sidebar   : nav rail                  = neutral-100
+   ========================================================================== */
+.ndm-window { background: var(--neutral-50); }
+.ndm-titlebar { background: var(--neutral-100); }
+.ndm-footer { background: var(--neutral-100); border-top: 1px solid var(--neutral-200); }
+.ndm-body { background: var(--panel); }
+.ndm-sidebar { background: var(--neutral-100); border-right: 1px solid var(--neutral-200); }
+
+/* Fluent selection pill: inner accent stroke, like Files/Settings nav */
+
+/* ==========================================================================
+   AUTHENTIC SOLID PRO DESKTOP SCROLLBAR (SQUARE CORNERS & STEPPER BUTTONS)
+   Light side uses tokens; .theme-dark side (set by Appearance) uses the dark
+   token ramp so the whole rail re-tunes with the theme.
+   ========================================================================== */
+
+/* 1. Base Dimensions (14px flush solid bar) */
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+  background-color: var(--neutral-100);
+}
+
+.theme-dark ::-webkit-scrollbar {
+  background-color: var(--neutral-100);
+}
+
+/* 2. Solid Gutter Track (0px border-radius) */
+::-webkit-scrollbar-track {
+  background: var(--neutral-100);
+  border-radius: 0px !important;
+  border-left: 1px solid var(--neutral-200);
+}
+
+.theme-dark ::-webkit-scrollbar-track {
+  background: var(--neutral-50);
+  border-radius: 0px !important;
+  border-left: 1px solid var(--neutral-200);
+}
+
+/* 3. Solid Rectangular Thumb (Flat block, no pills or cane rounding) */
+::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: 0px !important;
+  border: 1px solid var(--neutral-400);
+  min-height: 24px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-400);
+  border-color: #64748b;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #64748b;
+  border-color: #475569;
+}
+
+.theme-dark ::-webkit-scrollbar-thumb {
+  background: var(--neutral-400);
+  border-radius: 0px !important;
+  border: 1px solid var(--neutral-500);
+}
+
+.theme-dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-500);
+  border-color: var(--neutral-600);
+}
+
+.theme-dark ::-webkit-scrollbar-thumb:active {
+  background: var(--neutral-600);
+  border-color: var(--neutral-500);
+}
+
+/* 4. Directional Stepper Buttons (▲ / ▼ / ◀ / ▶) */
+::-webkit-scrollbar-button {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background-color: var(--neutral-100);
+  background-repeat: no-repeat;
+  background-position: center;
+  border: 1px solid var(--neutral-200);
+}
+
+::-webkit-scrollbar-button:hover {
+  background-color: var(--neutral-200);
+}
+
+::-webkit-scrollbar-button:active {
+  background-color: var(--neutral-300);
+}
+
+.theme-dark ::-webkit-scrollbar-button {
+  background-color: var(--neutral-100);
+  border: 1px solid var(--neutral-200);
+}
+
+.theme-dark ::-webkit-scrollbar-button:hover {
+  background-color: var(--neutral-200);
+}
+
+.theme-dark ::-webkit-scrollbar-button:active {
+  background-color: var(--neutral-300);
+}
+
+/* Vertical Top Button (▲) */
+::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='7,4 3,9 11,9' fill='%2364748b'/%3E%3C/svg%3E");
+}
+
+.theme-dark ::-webkit-scrollbar-button:vertical:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='7,4 3,9 11,9' fill='%23a1a1aa'/%3E%3C/svg%3E");
+}
+
+/* Vertical Bottom Button (▼) */
+::-webkit-scrollbar-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='7,10 3,5 11,5' fill='%2364748b'/%3E%3C/svg%3E");
+}
+
+.theme-dark ::-webkit-scrollbar-button:vertical:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='7,10 3,5 11,5' fill='%23a1a1aa'/%3E%3C/svg%3E");
+}
+
+/* Horizontal Left Button (◀) */
+::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='4,7 9,3 9,11' fill='%2364748b'/%3E%3C/svg%3E");
+}
+
+.theme-dark ::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='4,7 9,3 9,11' fill='%23a1a1aa'/%3E%3C/svg%3E");
+}
+
+/* Horizontal Right Button (▶) */
+::-webkit-scrollbar-button:horizontal:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='10,7 5,3 5,11' fill='%2364748b'/%3E%3C/svg%3E");
+}
+
+.theme-dark ::-webkit-scrollbar-button:horizontal:increment {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpolygon points='10,7 5,3 5,11' fill='%23a1a1aa'/%3E%3C/svg%3E");
+}
+
+/* 5. Gutter Corner */
+::-webkit-scrollbar-corner {
+  background: var(--neutral-100);
+}
+
+.theme-dark ::-webkit-scrollbar-corner {
+  background: var(--neutral-100);
+}
+
+

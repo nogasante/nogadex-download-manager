@@ -5,19 +5,12 @@
  * sensitive parameter scrubbing, and graceful shutdown.
  */
 
-import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
 import { DownloadEngine, validateUrl } from './engine';
-import { PerformanceTelemetryTracker, scrubSensitiveUrl } from './performance_metrics';
+import { scrubSensitiveUrl } from './performance_metrics';
 
-const TEST_PORT = 5092;
 const TEST_DIR = path.join(process.cwd(), 'temp_security_test');
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(r => setTimeout(r, ms));
-}
 
 let passed = 0;
 let failed = 0;

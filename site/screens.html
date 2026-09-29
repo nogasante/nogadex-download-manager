@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Screens — NDM</title>
+<meta name="description" content="Screenshots of NDM, captured from the real app.">
+<meta name="theme-color" content="#005a9e">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" href="assets/favicon.ico">
+<script>/* theme before first paint — no flash */
+(function(){var s=localStorage.getItem('ndm-theme');document.documentElement.style.colorScheme=(s==='light'||s==='dark')?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');})();</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="site-nav"></header>
+
+<main>
+  <section class="dl-page">
+    <div class="wrap">
+      <h1>Screens</h1>
+      <p class="dl-sub">A look at NDM's current interface. Click a screenshot to view it.</p>
+
+      <!-- the app-window viewer -->
+      <div class="viewer" id="viewer">
+        <div class="viewer-title">
+          <img src="assets/logo.png" alt="" width="20" height="20">
+          <span class="viewer-name" id="viewer-name">Main window</span>
+          <span class="viewer-keys" id="viewer-keys" hidden></span>
+        </div>
+
+        <div class="viewer-body">
+          <img id="viewer-img" src="screenshots/main-window.png" alt="NDM Main window" width="1280" height="800">
+        </div>
+
+        <div class="viewer-foot">
+          <span class="viewer-cap" id="viewer-cap">The download queue with connection status, download speed, progress, and controls.</span>
+          <span class="viewer-nav">
+            <button class="demo-btn" type="button" id="viewer-prev" aria-label="Previous screenshot">Previous</button>
+            <span class="viewer-count" id="viewer-count">1 / 6</span>
+            <button class="demo-btn" type="button" id="viewer-next" aria-label="Next screenshot">Next</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- thumbnail rail: switching dialogs, like the app -->
+      <div class="thumb-rail" role="tablist" aria-label="Screenshots">
+        <button class="thumb is-selected" role="tab" aria-selected="true" type="button" data-shot="0">
+          <img src="screenshots/main-window.png" alt="" loading="lazy">
+          <span>Main window</span>
+        </button>
+        <button class="thumb" role="tab" aria-selected="false" type="button" data-shot="1">
+          <img src="screenshots/new-download.png" alt="" loading="lazy">
+          <span>New Download</span>
+        </button>
+        <button class="thumb" role="tab" aria-selected="false" type="button" data-shot="2">
+          <img src="screenshots/scheduler.png" alt="" loading="lazy">
+          <span>Scheduler</span>
+        </button>
+        <button class="thumb" role="tab" aria-selected="false" type="button" data-shot="3">
+          <img src="screenshots/settings-updates.png" alt="" loading="lazy">
+          <span>Settings</span>
+        </button>
+        <button class="thumb" role="tab" aria-selected="false" type="button" data-shot="4">
+          <img src="screenshots/diagnostics.png" alt="" loading="lazy">
+          <span>Diagnostics</span>
+        </button>
+        <button class="thumb" role="tab" aria-selected="false" type="button" data-shot="5">
+          <img src="screenshots/help-center.png" alt="" loading="lazy">
+          <span>Help Center</span>
+        </button>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/partials.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

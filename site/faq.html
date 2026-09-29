@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQ — NDM</title>
+<meta name="description" content="Frequently asked questions about NDM.">
+<meta name="theme-color" content="#005a9e">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" href="assets/favicon.ico">
+<script>/* theme before first paint — no flash */
+(function(){var s=localStorage.getItem('ndm-theme');document.documentElement.style.colorScheme=(s==='light'||s==='dark')?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');})();</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="site-nav"></header>
+
+<main>
+  <section>
+    <div class="wrap">
+      <h2 style="text-align:center">FAQ</h2>
+      <div class="faq-list" style="margin:0 auto">
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">Is NDM really free?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">Yes. NDM is MIT licensed. It is free for personal and commercial use, with no paid tier and no ads. The license text is in the app under Help, License &amp; Legal.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">Will it work on my PC?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">Today: Windows 10 or 11 (64-bit) with about 400 MB free. The installer is per-user, so no administrator password is needed. macOS and Linux builds are planned; see the <a href="download.html">Download page</a> for the current status.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">My internet dropped mid-download. Do I start over?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">No. NDM saves progress as it downloads. When the connection is back, it continues from where it stopped, even after a full restart. Completed parts are not downloaded again.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">Windows showed a warning when I opened the installer.</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">The installer is not code-signed yet, so Windows shows this warning for new apps. Choose <b>More info</b>, then <b>Run anyway</b>. A CHECKSUMS.sha256 file is published with every release so you can verify the file you downloaded.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">Where do my downloads go?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">Your Downloads folder by default. You can change it in Options, or pick a different folder per download.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">Does NDM collect anything about me?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">No account, no analytics, no ads. NDM connects to the servers you download from. It also contacts GitHub for update checks; you can turn automatic checks off in Options, Updates.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">Is there a Mac or Linux version?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">They are planned. The build configuration targets macOS (.dmg) and Linux (AppImage, .deb), but published builds are not available yet. Check the <a href="download.html">Download page</a> for status.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">How do updates work?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">In the app: Help, Check for Updates. NDM checks GitHub for new versions, downloads an update only after you approve it, and installs it on the next restart.</div></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" aria-expanded="false"><span class="qt">Found a bug. What's the fastest way to get it fixed?</span><span class="chev">›</span></button>
+          <div class="faq-a"><div class="inner">Use Help, Report a Bug in the app. It opens a GitHub issue draft and includes your app version and platform. It does not include your download history.</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/partials.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

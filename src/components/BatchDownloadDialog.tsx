@@ -1,13 +1,17 @@
 import React, { useState, useMemo } from 'react';
+import { BatchEngine } from '../../shared/batch_engine';
 import { WindowsDialog } from './common/WindowsDialog';
 import { MessageBoxDialog, MessageBoxOptions } from './MessageBoxDialog';
 import { WinCheckbox, WinInput, WinSelect, WinButton, WinTabs } from './common/WinControls';
+import { DEFAULT_DOWNLOAD_DIR, APP_NAME } from '../config/appInfo';
+import { useCategoryFolder } from '../hooks/useCategoryFolder';
 
 interface BatchDownloadDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmitBatch: (urls: string[], savePath: string) => Promise<void>;
   defaultFolder?: string;
+  isStandalone?: boolean;
 }
 
 export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
@@ -15,17 +19,16 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
   onClose,
   onSubmitBatch,
   defaultFolder,
+  isStandalone = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'pattern' | 'list'>('pattern');
-  const userDownloads = 'C:\\Users\\nanas\\Downloads';
-  const [savePath, setSavePath] = useState(defaultFolder || userDownloads);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [msgBox, setMsgBox] = useState<MessageBoxOptions | null>(null);
 
-  const [patternUrl, setPatternUrl] = useState('https://example.com/assets/file_*.zip');
+  const [patternUrl, setPatternUrl] = useState('');
   const [patternType, setPatternType] = useState<'numeric' | 'alpha'>('numeric');
   const [numFrom, setNumFrom] = useState(1);
-  const [numTo, setNumTo] = useState(5);
+  const [numTo, setNumTo] = useState(10);
   const [numStep, setNumStep] = useState(1);
   const [useLeadingZeros, setUseLeadingZeros] = useState(false);
   const [leadingZeros, setLeadingZeros] = useState(2);
@@ -35,41 +38,20 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
 
   const [rawUrlList, setRawUrlList] = useState('');
 
+  // Expansion logic lives in the shared BatchEngine (single source of truth
+  // with the server-side validation rules: protocol checks, batch caps, etc).
   const generatedUrls = useMemo(() => {
     if (activeTab === 'list') {
-      return rawUrlList
-        .split('\n')
-        .map((u) => u.trim())
-        .filter((u) => u.length > 0 && /^https?:\/\//i.test(u));
+      return BatchEngine.parseMultiUrlList(rawUrlList).urls;
     }
 
     if (!patternUrl.includes('*')) return [];
-    const urls: string[] = [];
 
-    if (patternType === 'numeric') {
-      const start = Math.min(numFrom, numTo);
-      const end = Math.max(numFrom, numTo);
-      const step = Math.max(1, numStep);
-
-      for (let i = start; i <= end; i += step) {
-        let rep = i.toString();
-        if (useLeadingZeros) {
-          rep = rep.padStart(leadingZeros, '0');
-        }
-        urls.push(patternUrl.replace('*', rep));
-      }
-    } else {
-      const startCode = alphaFrom.charCodeAt(0);
-      const endCode = alphaTo.charCodeAt(0);
-      const minCode = Math.min(startCode, endCode);
-      const maxCode = Math.max(startCode, endCode);
-
-      for (let i = minCode; i <= maxCode; i++) {
-        const char = String.fromCharCode(i);
-        urls.push(patternUrl.replace('*', char));
-      }
-    }
-    return urls;
+    const result = BatchEngine.expandPattern(patternUrl, patternType === 'numeric'
+      ? { type: 'numeric', from: numFrom, to: numTo, step: Math.max(1, numStep), leadingZeros: useLeadingZeros ? leadingZeros : 0 }
+      : { type: 'alpha', from: alphaFrom, to: alphaTo }
+    );
+    return result.urls;
   }, [
     activeTab,
     rawUrlList,
@@ -84,11 +66,23 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
     alphaTo,
   ]);
 
+  const sampleUrl = generatedUrls[0] || (activeTab === 'pattern' ? patternUrl : '');
+  const {
+    folder: savePath,
+    setFolder: setSavePath,
+    handleBrowse,
+    verifyFolderPermission,
+    msgBox: folderMsgBox,
+  } = useCategoryFolder({
+    baseFolder: defaultFolder || '',
+    url: sampleUrl,
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (generatedUrls.length === 0) {
       setMsgBox({
-        title: 'Nogadex Download Manager',
+        title: APP_NAME,
         type: 'warning',
         message: 'No valid URLs generated. Please check your pattern or direct URL list.',
       });
@@ -97,11 +91,13 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmitBatch(generatedUrls, savePath || userDownloads);
-      onClose();
+      await verifyFolderPermission(savePath, async (confirmedFolder) => {
+        await onSubmitBatch(generatedUrls, confirmedFolder || DEFAULT_DOWNLOAD_DIR);
+        onClose();
+      });
     } catch (err: any) {
       setMsgBox({
-        title: 'Nogadex Download Manager',
+        title: APP_NAME,
         type: 'error',
         message: `Failed to add batch download: ${err?.message || 'Unknown error'}`,
       });
@@ -118,7 +114,7 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
         disabled={isSubmitting || generatedUrls.length === 0}
         className="min-w-[120px]"
       >
-        {isSubmitting ? 'Adding...' : `Add ${generatedUrls.length} Downloads`}
+        {isSubmitting ? 'Adding...' : generatedUrls.length > 0 ? `Add ${generatedUrls.length} Downloads` : 'Add Downloads'}
       </WinButton>
       <WinButton variant="secondary" onClick={onClose} className="min-w-[84px]">
         Cancel
@@ -137,15 +133,17 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title="Add Batch Download"
-        width="w-[560px]"
+        width="w-[660px]"
         footer={footer}
+        isStandalone={isStandalone}
+        autoFitHeight={isStandalone}
       >
         <WinTabs tabs={tabs} activeTab={activeTab} onChange={(id) => setActiveTab(id as any)} />
 
         {activeTab === 'pattern' ? (
-          <div className="space-y-3.5">
+          <div className="space-y-2.5">
             <div className="space-y-1">
-              <label className="text-[#475569] font-medium">Address Pattern with Wildcard (*):</label>
+              <label className="text-neutral-600 font-medium">Address Pattern with Wildcard (*):</label>
               <WinInput
                 type="text"
                 value={patternUrl}
@@ -157,7 +155,7 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[#475569]">Sequence Type:</label>
+                <label className="text-neutral-600">Sequence Type:</label>
                 <WinSelect
                   value={patternType}
                   onChange={(e) => setPatternType(e.target.value as any)}
@@ -191,7 +189,7 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
             {patternType === 'numeric' ? (
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[#64748b] text-[11px]">From:</label>
+                  <label className="text-neutral-500 text-[11px]">From:</label>
                   <WinInput
                     type="number"
                     value={numFrom}
@@ -200,7 +198,7 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[#64748b] text-[11px]">To:</label>
+                  <label className="text-neutral-500 text-[11px]">To:</label>
                   <WinInput
                     type="number"
                     value={numTo}
@@ -209,7 +207,7 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[#64748b] text-[11px]">Step:</label>
+                  <label className="text-neutral-500 text-[11px]">Step:</label>
                   <WinInput
                     type="number"
                     min="1"
@@ -222,7 +220,7 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[#64748b] text-[11px]">From Letter:</label>
+                  <label className="text-neutral-500 text-[11px]">From Letter:</label>
                   <WinInput
                     type="text"
                     maxLength={1}
@@ -232,7 +230,7 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[#64748b] text-[11px]">To Letter:</label>
+                  <label className="text-neutral-500 text-[11px]">To Letter:</label>
                   <WinInput
                     type="text"
                     maxLength={1}
@@ -246,36 +244,44 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
           </div>
         ) : (
           <div className="space-y-2">
-            <label className="text-[#475569] font-medium">Paste List of URLs (one per line):</label>
+            <label className="text-neutral-600 font-medium">Paste List of URLs (one per line):</label>
             <textarea
               value={rawUrlList}
               onChange={(e) => setRawUrlList(e.target.value)}
               placeholder="https://example.com/file1.zip&#10;https://example.com/file2.zip"
-              className="w-full h-36 p-2 border border-[#94a3b8] rounded-[2px] font-mono text-[11px] focus:border-[#005a9e] outline-none"
+              className="w-full h-36 p-2 border border-neutral-400 rounded-[2px] font-mono text-[11px] focus:border-brand outline-none"
             />
           </div>
         )}
 
         {/* Preview box */}
-        <div className="border border-[#cbd5e1] p-2 rounded-[2px] bg-[#f8fafc] text-[11px] space-y-1">
-          <div className="font-semibold text-[#475569]">
-            Preview ({generatedUrls.length} files):
+        <div className="border border-neutral-300 p-2.5 rounded-[2px] bg-neutral-50 text-[11.5px] space-y-1">
+          <div className="font-semibold text-neutral-600">
+            {generatedUrls.length > 0 ? `Preview (${generatedUrls.length} files):` : 'Batch Preview:'}
           </div>
-          <div className="max-h-20 overflow-y-auto font-mono text-[#005a9e] space-y-0.5">
-            {generatedUrls.slice(0, 5).map((u, idx) => (
-              <div key={idx} className="truncate">
-                {idx + 1}. {u}
-              </div>
-            ))}
-            {generatedUrls.length > 5 && (
-              <div className="text-[#64748b] italic">... ({generatedUrls.length - 5} more items)</div>
-            )}
-          </div>
+          {generatedUrls.length === 0 ? (
+            <div className="text-neutral-400 italic text-[11px] py-1">
+              {activeTab === 'pattern'
+                ? "Enter an address pattern with '*' (e.g. https://site.com/file_*.zip) to preview download list"
+                : 'Paste one or more valid URLs above to preview batch items'}
+            </div>
+          ) : (
+            <div className="max-h-16 overflow-y-auto font-mono text-brand space-y-0.5">
+              {generatedUrls.slice(0, 5).map((u, idx) => (
+                <div key={idx} className="truncate">
+                  {idx + 1}. {u}
+                </div>
+              ))}
+              {generatedUrls.length > 5 && (
+                <div className="text-neutral-500 italic">... ({generatedUrls.length - 5} more items)</div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Save location */}
         <div className="space-y-1">
-          <label className="text-[#475569] font-medium">Save Location:</label>
+          <label className="text-neutral-600 font-medium">Save Location:</label>
           <div className="flex gap-2">
             <WinInput
               type="text"
@@ -283,12 +289,18 @@ export const BatchDownloadDialog: React.FC<BatchDownloadDialogProps> = ({
               onChange={(e) => setSavePath(e.target.value)}
               className="flex-1 font-mono"
             />
-            <WinButton variant="secondary" className="px-3">Browse...</WinButton>
+            <WinButton variant="secondary" onClick={handleBrowse} className="px-3">Browse...</WinButton>
           </div>
         </div>
       </WindowsDialog>
 
-      {msgBox && <MessageBoxDialog isOpen={Boolean(msgBox)} options={msgBox} onClose={() => setMsgBox(null)} />}
+      {(folderMsgBox || msgBox) && (
+        <MessageBoxDialog
+          isOpen={Boolean(folderMsgBox || msgBox)}
+          options={folderMsgBox || msgBox}
+          onClose={() => setMsgBox(null)}
+        />
+      )}
     </>
   );
 };

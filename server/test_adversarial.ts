@@ -30,9 +30,6 @@ const HASH_2MB = crypto.createHash('sha256').update(PAYLOAD_2MB).digest('hex');
 const PAYLOAD_1BYTE = Buffer.from([0x42]);
 const HASH_1BYTE = crypto.createHash('sha256').update(PAYLOAD_1BYTE).digest('hex');
 
-const PAYLOAD_50KB = PAYLOAD_10MB.subarray(0, 50 * 1024);
-const HASH_50KB = crypto.createHash('sha256').update(PAYLOAD_50KB).digest('hex');
-
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -62,7 +59,7 @@ async function runAdversarialTests() {
   console.log('       HYPERDOWNLOADER P4 ADVERSARIAL & HARDENING TEST SUITE            ');
   console.log('========================================================================\n');
 
-  let serverHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void = (req, res) => {};
+  let serverHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void = () => {};
 
   const server = http.createServer((req, res) => {
     serverHandler(req, res);
@@ -88,7 +85,7 @@ async function runAdversarialTests() {
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/adv01.bin`, 'adv01.bin', TEST_DIR, 4);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(20);
 
-      assert(item.status === 'error' && item.error?.includes('Content-Range'), 'ADV-01', 'Malformed Content-Range rejected safely without writing corrupt data');
+      assert(!!(item.status === 'error' && item.error?.includes('Content-Range')), 'ADV-01', 'Malformed Content-Range rejected safely without writing corrupt data');
       engine.destroy();
     }
 
@@ -137,7 +134,7 @@ async function runAdversarialTests() {
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/adv03.bin`, 'adv03.bin', TEST_DIR, 4);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(20);
 
-      assert(item.status === 'error' && (item.error?.includes('200') || item.error?.includes('Protocol Violation')), 'ADV-03', 'HTTP 200 received during segmented request failed fast to prevent data corruption');
+      assert(!!(item.status === 'error' && (item.error?.includes('200') || item.error?.includes('Protocol Violation'))), 'ADV-03', 'HTTP 200 received during segmented request failed fast to prevent data corruption');
       engine.destroy();
     }
 
@@ -158,7 +155,7 @@ async function runAdversarialTests() {
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/adv04.bin`, 'adv04.bin', TEST_DIR, 4);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(20);
 
-      assert(item.status === 'error' && (item.error?.includes('mismatch') || item.error?.includes('Content-Range')), 'ADV-04', 'Content-Range with mismatched start offset rejected immediately');
+      assert(!!(item.status === 'error' && (item.error?.includes('mismatch') || item.error?.includes('Content-Range'))), 'ADV-04', 'Content-Range with mismatched start offset rejected immediately');
       engine.destroy();
     }
 
@@ -330,7 +327,7 @@ async function runAdversarialTests() {
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/adv10.bin`, 'adv10.bin', TEST_DIR, 4);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(20);
 
-      assert(item.status === 'error' && item.error?.includes('416'), 'ADV-10', 'HTTP 416 aborted immediately without infinite retries');
+      assert(!!(item.status === 'error' && item.error?.includes('416')), 'ADV-10', 'HTTP 416 aborted immediately without infinite retries');
       engine.destroy();
     }
 
@@ -352,7 +349,7 @@ async function runAdversarialTests() {
       const item = await engine.addDownload(`http://localhost:${TEST_PORT}/adv11.bin`, 'adv11.bin', TEST_DIR, 4);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(20);
 
-      assert(item.status === 'error' && (item.error?.includes('mismatch') || item.error?.includes('Content-Range')), 'ADV-11', 'Server altering total file size mid-download rejected cleanly');
+      assert(!!(item.status === 'error' && (item.error?.includes('mismatch') || item.error?.includes('Content-Range'))), 'ADV-11', 'Server altering total file size mid-download rejected cleanly');
       engine.destroy();
     }
 
@@ -536,7 +533,7 @@ async function runAdversarialTests() {
       const controller = new AdaptiveConcurrencyController({ minWorkers: 2, maxWorkers: 16, initialWorkers: 4 });
       controller.recordThroughputSample(NaN, -100);
       controller.recordThroughputSample(Infinity, NaN);
-      const action = controller.evaluate({
+      controller.evaluate({
         activeWorkersCount: NaN,
         latencyMs: NaN,
         errorRate: NaN,

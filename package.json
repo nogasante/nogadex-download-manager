@@ -1,18 +1,23 @@
 {
-  "name": "hyper-downloader",
+  "name": "nogadex-download-manager",
+  "productName": "NDM — Nogadex Download Manager",
+  "description": "Fast, reliable multi-stream download manager for Windows — parallel segmented downloads, instant resume, scheduler, and built-in integrity verification.",
+  "author": "Nogadex Systems",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.4",
   "type": "module",
   "scripts": {
     "dev:ui": "vite",
     "dev:engine": "tsx watch server/server.ts",
     "dev": "concurrently \"npm run dev:engine\" \"npm run dev:ui\"",
-    "build": "tsc && vite build",
+    "build:server": "esbuild server/server.ts --bundle --platform=node --target=node20 --outfile=dist-server/server.cjs --format=cjs",
+    "build": "tsc && vite build && npm run build:server",
     "preview": "vite preview",
     "start": "tsx server/server.ts",
     "electron": "electron .",
     "desktop": "concurrently \"cross-env BROWSER=none vite\" \"wait-on tcp:5173 && electron .\"",
-    "dist": "vite build && electron-builder --win",
+    "dist": "npm run build && electron-builder --win",
+    "release": "npm run test:gate && npm run dist",
     "test": "tsx server/test_runner.ts",
     "test:all": "tsx server/test_runner.ts",
     "test:correctness": "tsx server/test_correctness.ts",
@@ -25,19 +30,15 @@
     "test:security": "tsx server/test_security.ts",
     "test:soak": "tsx server/test_soak.ts",
     "benchmark": "tsx server/benchmark_engine.ts",
+    "bench:vs-classic": "tsx server/benchmark_vs_classic.ts",
     "test:hardening": "tsx server/test_product_hardening.ts",
     "test:gate": "tsx server/test_release_gate.ts",
     "test:internet": "tsx server/test_real_internet.ts"
   },
   "dependencies": {
-    "clsx": "^2.1.1",
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "lucide-react": "^0.475.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "tailwind-merge": "^2.6.0",
-    "ws": "^8.18.0"
+    "electron-updater": "^6.3.9",
+    "i18next": "^26.4.2",
+    "react-i18next": "^17.0.15"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -48,33 +49,93 @@
     "@types/ws": "^8.5.12",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+    "clsx": "^2.1.1",
     "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
     "cross-env": "^10.1.0",
     "electron": "^44.1.0",
     "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "express": "^4.19.2",
+    "lucide-react": "^0.475.0",
+    "playwright": "^1.62.1",
+    "png-to-ico": "^3.0.2",
     "postcss": "^8.4.41",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sharp": "^0.35.4",
+    "socks-proxy-agent": "^8.0.5",
+    "tailwind-merge": "^2.6.0",
     "tailwindcss": "^3.4.10",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
     "vite": "^5.4.1",
-    "wait-on": "^9.1.0"
+    "wait-on": "^9.1.0",
+    "ws": "^8.18.0"
   },
   "main": "electron/main.cjs",
   "build": {
-    "appId": "com.hyperdownloader.app",
-    "productName": "HyperDownloader",
+    "appId": "com.nogadex.ndm",
+    "productName": "NDM — Nogadex Download Manager",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
+      "dist-server/**/*",
       "electron/**/*",
-      "server/**/*",
-      "node_modules/**/*"
+      "public/**/*",
+      "package.json"
     ],
+    "protocols": {
+      "name": "NDM URL Protocol",
+      "schemes": [
+        "ndm"
+      ]
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "public/favicon.png",
+      "artifactName": "NDM_${version}_mac_${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network;Utility",
+      "icon": "public/favicon.png",
+      "artifactName": "NDM_${version}_linux_${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "NDM",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "nogasante",
+      "repo": "nogadex-download-manager"
+    },
     "win": {
       "target": "nsis",
-      "artifactName": "${productName}_Setup_${version}.${ext}"
+      "icon": "public/icon.ico",
+      "artifactName": "NDM_Setup_${version}.${ext}",
+      "verifyUpdateCodeSignature": false
     }
   }
 }

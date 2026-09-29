@@ -1,4 +1,4 @@
-import { BatchEngine } from './batch_engine';
+import { BatchEngine } from '../shared/batch_engine';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {

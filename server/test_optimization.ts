@@ -59,9 +59,7 @@ async function runOptimizationTests() {
 
   const PAYLOAD_10MB = generateDeterministicBuffer(10 * 1024 * 1024);
   const HASH_10MB = sha256Buffer(PAYLOAD_10MB);
-  let activePayload = PAYLOAD_10MB;
-
-  let serverHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void = (req, res) => {
+  let serverHandler: (req: http.IncomingMessage, res: http.ServerResponse) => void = (_req, res) => {
     res.writeHead(200);
     res.end('OK');
   };
@@ -154,7 +152,7 @@ async function runOptimizationTests() {
     {
       const controller = new AdaptiveConcurrencyController({ minWorkers: 2, maxWorkers: 8, initialWorkers: 4, cooldownMs: 1000 });
       controller.recordThroughputSample(20 * 1024 * 1024, 1000);
-      const first = controller.evaluate({ activeWorkersCount: 4 }); // May scale
+      controller.evaluate({ activeWorkersCount: 4 }); // May scale
       const second = controller.evaluate({ activeWorkersCount: 4 }); // Within cooldown
       assert(second === 'maintain', 'OPT-06', 'Consecutive evaluation within cooldown returned maintain (anti-oscillation)');
     }
@@ -192,11 +190,11 @@ async function runOptimizationTests() {
     }
 
     // -------------------------------------------------------------------------
-    // OPT-09: Small file (<= 2 MB) uses optimized single-stream fast path
+    // OPT-09: Auto mode uses parallel ranges for a 1 MB file
     // -------------------------------------------------------------------------
+    const smallBuf = generateDeterministicBuffer(1024 * 1024); // 1 MB
+    const smallHash = sha256Buffer(smallBuf);
     {
-      const smallBuf = generateDeterministicBuffer(1024 * 1024); // 1 MB
-      const smallHash = sha256Buffer(smallBuf);
 
       serverHandler = (req, res) => {
         if (req.method === 'HEAD') {
@@ -211,11 +209,37 @@ async function runOptimizationTests() {
       };
 
       const engine = new DownloadEngine(undefined, TEST_DIR);
-      const item = await engine.addDownload(`http://localhost:${TEST_PORT}/small.bin`, 'small.bin', TEST_DIR, 8);
+      // Auto mode (connections=0): engine uses the small-file parallel tier.
+      const item = await engine.addDownload(`http://localhost:${TEST_PORT}/small.bin`, 'small.bin', TEST_DIR, 0);
       while (item.status === 'downloading' || item.status === 'probing') await sleep(20);
 
       const downloadedHash = sha256File(item.destinationPath);
-      assert(item.chunks.length === 1 && downloadedHash === smallHash, 'OPT-09', 'Small file (1 MB) initialized with 1 stream and matched SHA-256');
+      assert(item.chunks.length === 32 && downloadedHash === smallHash, 'OPT-09', 'Auto mode picked 32 streams for 1 MB file and matched SHA-256');
+      engine.destroy();
+    }
+
+    // -------------------------------------------------------------------------
+    // OPT-09b: Manual mode honors the user's explicit stream count on small files
+    // -------------------------------------------------------------------------
+    {
+      serverHandler = (req, res) => {
+        if (req.method === 'HEAD') {
+          res.writeHead(200, { 'Content-Length': smallBuf.length.toString(), 'Accept-Ranges': 'bytes' });
+          return res.end();
+        }
+        const match = req.headers.range?.match(/bytes=(\d+)-(\d+)/);
+        const start = match ? parseInt(match[1], 10) : 0;
+        const end = match ? parseInt(match[2], 10) : smallBuf.length - 1;
+        res.writeHead(206, { 'Content-Range': `bytes ${start}-${end}/${smallBuf.length}` });
+        res.end(smallBuf.subarray(start, end + 1));
+      };
+
+      const engine = new DownloadEngine(undefined, TEST_DIR);
+      const item = await engine.addDownload(`http://localhost:${TEST_PORT}/small_manual.bin`, 'small_manual.bin', TEST_DIR, 8);
+      while (item.status === 'downloading' || item.status === 'probing') await sleep(20);
+
+      const downloadedHash = sha256File(item.destinationPath);
+      assert(item.chunks.length === 8 && downloadedHash === smallHash, 'OPT-09b', 'Manual mode honored 8 requested streams on 1 MB file and matched SHA-256');
       engine.destroy();
     }
 
@@ -447,8 +471,7 @@ async function runOptimizationTests() {
       while (item1.downloadedBytes < PAYLOAD_10MB.length * 0.25) {
         await sleep(50);
       }
-      const checkpoint = item1.downloadedBytes;
-      engine1.destroy(); // Hard teardown
+            engine1.destroy(); // Hard teardown
 
       isCrashPhase = false;
       const engine2 = new DownloadEngine(undefined, TEST_DIR);

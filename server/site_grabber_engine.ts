@@ -135,7 +135,7 @@ export class SiteGrabberEngine extends EventEmitter {
     return null;
   }
 
-  private isHtmlPage(url: string, ext: string): boolean {
+  private isHtmlPage(_url: string, ext: string): boolean {
     if (!ext || ext === 'html' || ext === 'htm' || ext === 'php' || ext === 'asp' || ext === 'aspx') {
       return true;
     }

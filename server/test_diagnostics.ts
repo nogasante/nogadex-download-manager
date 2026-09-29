@@ -29,7 +29,7 @@ async function runDiagnosticsTests() {
     const bundle = await diag.generateDiagnosticBundle(true);
     assert(bundle.timestamp > 0, 'Bundle timestamp recorded');
     assert(bundle.cdnHealth.length >= 2, 'CDN probe health array populated');
-    assert(bundle.cdnHealth[0].status === 'online', 'Cloudflare status reported online');
+    assert(bundle.cdnHealth[0].status === 'online', 'Google Edge status reported online');
     assert(bundle.cdnHealth[0].latencyMs === 25, 'Latency recorded');
     assert(typeof bundle.activeStreamsSummary.totalChunks === 'number', 'Stream summary reported');
 

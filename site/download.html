@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Download — NDM</title>
+<meta name="description" content="Download NDM for Windows. Free, open source, MIT licensed.">
+<!-- subtitle below: Choose a build for your platform. -->
+<meta name="theme-color" content="#005a9e">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+<link rel="icon" href="assets/favicon.ico">
+<script>/* theme before first paint — no flash */
+(function(){var s=localStorage.getItem('ndm-theme');document.documentElement.style.colorScheme=(s==='light'||s==='dark')?s:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');})();</script>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="site-nav"></header>
+
+<main>
+  <section class="dl-page">
+    <div class="wrap">
+      <h1>Download</h1>
+      <p class="dl-sub">Choose a build for your platform.</p>
+
+      <div class="os-tabs" role="tablist" aria-label="Operating system">
+        <button class="os-tab is-active" id="tab-windows" role="tab" aria-selected="true" aria-controls="pane-windows" type="button">Windows</button>
+        <button class="os-tab" id="tab-macos" role="tab" aria-selected="false" aria-controls="pane-macos" type="button">macOS</button>
+        <button class="os-tab" id="tab-linux" role="tab" aria-selected="false" aria-controls="pane-linux" type="button">Linux</button>
+      </div>
+
+      <div class="dl-panel">
+        <!-- Windows: the live pane -->
+        <div class="dl-pane is-active" id="pane-windows" role="tabpanel" aria-labelledby="tab-windows">
+          <div class="dl-cols">
+            <div class="dl-col">
+              <h2 class="col-head">Downloads</h2>
+              <div class="bin-list">
+                <a class="bin-row" data-dl="windows" href="#">
+                  <span>EXE Installer</span>
+                  <svg class="row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+                <a class="bin-row" href="https://github.com/nogasante/nogadex-download-manager/releases/latest/download/CHECKSUMS.sha256">
+                  <span>SHA-256 Checksums</span>
+                  <svg class="row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+              </div>
+              <a class="dl-more" href="changelog.html">Previous versions →</a>
+            </div>
+
+            <div class="dl-col">
+              <h2 class="col-head">Verify your download</h2>
+              <div class="cmd-card">
+                <div class="cmd-head">
+                  <span class="cmd-label">CERTUTIL</span>
+                  <button class="copy-btn" type="button" data-copy="#cmd-sha" aria-label="Copy command">
+                    <svg class="row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  </button>
+                </div>
+                <code class="cmd-line" id="cmd-sha">certutil -hashfile <span data-asset>Nogadex_Setup_1.0.4.exe</span> SHA256</code>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- macOS: coming soon -->
+        <div class="dl-pane" id="pane-macos" role="tabpanel" aria-labelledby="tab-macos" hidden>
+          <div class="soon-box">
+            <div class="soon-title">macOS builds are coming soon.</div>
+          </div>
+        </div>
+
+        <!-- Linux: coming soon -->
+        <div class="dl-pane" id="pane-linux" role="tabpanel" aria-labelledby="tab-linux" hidden>
+          <div class="soon-box">
+            <div class="soon-title">Linux builds are coming soon.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script src="assets/partials.js"></script>
+<script src="assets/site.js"></script>
+</body>
+</html>

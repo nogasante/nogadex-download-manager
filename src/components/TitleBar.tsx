@@ -1,5 +1,7 @@
 import React from 'react';
 import { Minus, Square, X } from 'lucide-react';
+import { APP_NAME } from '../config/appInfo';
+import ndmLogo from '../assets/logo.png';
 
 export const TitleBar: React.FC = () => {
   const handleMinimize = () => {
@@ -17,17 +19,18 @@ export const TitleBar: React.FC = () => {
   return (
     <div 
       style={{ WebkitAppRegion: 'drag' } as any}
-      className="h-8 bg-[#ffffff] border-b border-[#e2e8f0] flex items-center justify-between px-3 select-none text-[13px] font-sans shrink-0 z-50 shadow-sm"
+      className="h-8 ndm-titlebar flex items-center justify-between px-3 select-none text-[13px] font-sans shrink-0 z-50"
     >
       {/* Brand & Logo */}
       <div className="flex items-center gap-2">
         <img
-          src="/logo.png"
-          alt="Nogadex Logo"
-          className="w-5 h-5 rounded-[4px] object-contain drop-shadow-sm pointer-events-none"
+          src={ndmLogo}
+          alt={APP_NAME}
+          className="w-[22px] h-[22px] shrink-0 object-contain pointer-events-none"
+          style={{ imageRendering: '-webkit-optimize-contrast' }}
         />
-        <span className="font-semibold text-[#1e293b] tracking-tight">
-          Nogadex Download Manager
+        <span className="font-semibold text-neutral-800 tracking-tight">
+          {APP_NAME}
         </span>
       </div>
 
@@ -38,7 +41,7 @@ export const TitleBar: React.FC = () => {
       >
         <button
           onClick={handleMinimize}
-          className="w-11 h-full flex items-center justify-center hover:bg-[#f1f5f9] text-[#475569] transition-colors"
+          className="w-11 h-full flex items-center justify-center hover:bg-neutral-100 text-neutral-600 transition-colors"
           title="Minimize"
         >
           <Minus className="w-3.5 h-3.5" />
@@ -46,7 +49,7 @@ export const TitleBar: React.FC = () => {
 
         <button
           onClick={handleMaximize}
-          className="w-11 h-full flex items-center justify-center hover:bg-[#f1f5f9] text-[#475569] transition-colors"
+          className="w-11 h-full flex items-center justify-center hover:bg-neutral-100 text-neutral-600 transition-colors"
           title="Maximize"
         >
           <Square className="w-3 h-3 stroke-[1.5]" />
@@ -54,7 +57,7 @@ export const TitleBar: React.FC = () => {
 
         <button
           onClick={handleClose}
-          className="w-11 h-full flex items-center justify-center hover:bg-[#e11d48] hover:text-white text-[#475569] transition-colors"
+          className="w-11 h-full flex items-center justify-center hover:bg-danger hover:text-white text-neutral-600 transition-colors"
           title="Close"
         >
           <X className="w-3.5 h-3.5" />

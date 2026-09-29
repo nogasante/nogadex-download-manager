@@ -5,7 +5,6 @@
 
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
 import { DownloadEngine } from './engine';
 
 function assert(condition: boolean, code: string, message: string) {
@@ -25,14 +24,14 @@ async function runRealInternetTests() {
   if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true, force: true });
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  const engine = new DownloadEngine(tmpDir, false); // production mode (allowLocalhost: false)
+  const engine = new DownloadEngine(undefined, tmpDir, undefined, { allowLocalhost: false }); // production mode
 
   try {
     // -------------------------------------------------------------------------
     // TEST 1: Real Public HTTPS Static File with Known Content (GitHub)
     // -------------------------------------------------------------------------
     console.log('[*] Test 1: Real HTTPS static download (GitHub Raw)...');
-    const item1 = await engine.addDownload('https://raw.githubusercontent.com/octocat/Hello-World/master/README', 2);
+    const item1 = await engine.addDownload('https://raw.githubusercontent.com/octocat/Hello-World/master/README', 'auto', undefined, 2);
     
     await new Promise<void>((resolve, reject) => {
       const timer = setInterval(() => {
@@ -57,7 +56,7 @@ async function runRealInternetTests() {
     // -------------------------------------------------------------------------
     console.log('\n[*] Test 2: Real HTTPS Redirect...');
     const redirectUrl = 'https://httpbin.org/redirect-to?url=https%3A%2F%2Fraw.githubusercontent.com%2Foctocat%2FHello-World%2Fmaster%2FREADME&status_code=302';
-    const item2 = await engine.addDownload(redirectUrl, 2);
+    const item2 = await engine.addDownload(redirectUrl, 'auto', undefined, 2);
     
     await new Promise<void>((resolve, reject) => {
       const timer = setInterval(() => {

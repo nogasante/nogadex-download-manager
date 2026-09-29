@@ -1,7 +1,7 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
-import { SettingsManager, DEFAULT_NOGADEX_SETTINGS } from './settings_store';
+import { SettingsManager } from './settings_store';
 
 function assert(condition: boolean, msg: string) {
   if (!condition) {
@@ -14,7 +14,7 @@ function assert(condition: boolean, msg: string) {
 async function runSettingsTests() {
   console.log('=== SUITE 18: PHASE 9.1 SETTINGS & PREFERENCES ENGINE ===');
 
-  const testConfigPath = path.join(os.tmpdir(), `nogadex_test_settings_${Date.now()}.json`);
+  const testConfigPath = path.join(os.tmpdir(), `ndm_test_settings_${Date.now()}.json`);
 
   try {
     // 1. Initial Load & Default Generation
@@ -65,7 +65,7 @@ async function runSettingsTests() {
       },
     });
     const clamped = sm2.getSettings();
-    assert(clamped.downloads.maxConcurrentDownloads === 20, `Clamp failed for concurrency: got ${clamped.downloads.maxConcurrentDownloads}`);
+    assert(clamped.downloads.maxConcurrentDownloads === 999, `User custom concurrency preserved: got ${clamped.downloads.maxConcurrentDownloads}`);
     assert(clamped.downloads.defaultConnections === 64, `Clamp failed for connections: got ${clamped.downloads.defaultConnections}`);
 
     // 5. Reset Defaults

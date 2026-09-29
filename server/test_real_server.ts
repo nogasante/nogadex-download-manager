@@ -106,7 +106,7 @@ async function runRealServerTests() {
     // REAL-02: Real HTTP 200 Single-stream download
     // -------------------------------------------------------------------------
     {
-      serverHandler = (req, res) => {
+      serverHandler = (_req, res) => {
         res.writeHead(200, { 'Content-Length': PAYLOAD_1MB.length.toString() });
         res.end(PAYLOAD_1MB);
       };
@@ -124,7 +124,7 @@ async function runRealServerTests() {
     // REAL-03: Real HTTP 404 fast fails with 0 retries
     // -------------------------------------------------------------------------
     {
-      serverHandler = (req, res) => {
+      serverHandler = (_req, res) => {
         res.writeHead(404);
         res.end('Not Found');
       };

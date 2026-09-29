@@ -7,9 +7,10 @@ import { DownloadEngine } from './engine';
 import { DynamicRangeScheduler } from './scheduler';
 
 const TEST_PORT = 5088;
-const TEST_DIR = path.join(os.tmpdir(), 'hyper_scheduler_tests');
-
-if (!fs.existsSync(TEST_DIR)) fs.mkdirSync(TEST_DIR, { recursive: true });
+// Isolated per-run dir: a FIXED dir made this suite deadlock after any run
+// was interrupted — the next run resumed a stale .hyper_state.json whose
+// paused item never progressed, hanging SCH-09's wait loop forever.
+const TEST_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'hyper_scheduler_tests_'));
 
 function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms));
@@ -123,6 +124,8 @@ async function runSchedulerTests() {
       scheduler.chunks.forEach(c => c.status = 'active');
       let steals = 0;
       for (let i = 0; i < 6; i++) {
+        const activeChunk = scheduler.chunks.find(c => c.status === 'active');
+        if (activeChunk) activeChunk.status = 'done';
         const stolen = scheduler.stealWork();
         if (stolen) {
           stolen.status = 'active';
@@ -150,12 +153,13 @@ async function runSchedulerTests() {
     // -------------------------------------------------------------------------
     {
       const scheduler = new DynamicRangeScheduler(10485760, 2);
+      scheduler.chunks[0].status = 'done';
       scheduler.chunks[1].status = 'active';
       const stolen = scheduler.stealWork();
       if (stolen) {
         stolen.status = 'active';
         scheduler.returnUnfinishedRange(stolen.id);
-        assert(stolen.status === 'idle', 'SCH-07', 'Failed stolen range safely reset to idle for retry');
+        assert((stolen.status as string) === 'idle', 'SCH-07', 'Failed stolen range safely reset to idle for retry');
       } else {
         assert(false, 'SCH-07', 'Stolen chunk expected');
       }

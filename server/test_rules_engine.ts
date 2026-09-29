@@ -1,4 +1,3 @@
-import path from 'path';
 import { RulesEngine, DownloadRule } from './rules_engine';
 import { CategoryRule } from './settings_store';
 
@@ -47,10 +46,10 @@ async function runRulesTests() {
     },
     {
       id: 'rule_2',
-      name: 'Cloudflare Speed Tests',
+      name: 'Public Speed Test Hosts',
       enabled: true,
       order: 2,
-      condition: { type: 'hostname', value: '*.cloudflare.com' },
+      condition: { type: 'hostname', value: '*.speedtest.example' },
       action: { queueId: 'speed_queue', priority: 'normal' },
     },
     {
@@ -79,9 +78,11 @@ async function runRulesTests() {
   assert(eval1?.maxConnections === 64, 'Max connections should be 64');
   assert(eval1?.priority === 'high', 'Priority should be high');
 
-  const eval2 = rulesEngine.evaluate('https://speed.cloudflare.com/__down?bytes=50000000', 'benchmark.bin');
-  assert(eval2 !== null, 'Rule 2 should match *.cloudflare.com wildcard host');
-  assert(eval2?.queueId === 'speed_queue', 'Queue should be speed_queue');
+  const eval2 = rulesEngine.evaluate('https://files.pythonhosted.org/__down?bytes=50000000', 'benchmark.bin');
+  assert(eval2 === null, 'Rule 2 must NOT match non-wildcarded pythonhosted.org host');
+  const eval2b = rulesEngine.evaluate('https://lon.speedtest.example/__down?bytes=50000000', 'benchmark.bin');
+  assert(eval2b !== null, 'Rule 2 should match *.speedtest.example wildcard host');
+  assert(eval2b?.queueId === 'speed_queue', 'Queue should be speed_queue');
 
   const eval3 = rulesEngine.evaluate('https://example.com/huge.bin', 'huge.bin', 2000000000);
   assert(eval3 !== null, 'Rule 3 should match size >= 1GB');
