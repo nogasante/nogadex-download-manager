@@ -1263,9 +1263,10 @@ export class DownloadEngine {
     const headers: Record<string, string> = {
       'accept': '*/*',
       'accept-encoding': 'identity',
-      'referer': this.hostIntelligence.getHostReferer(requestUrl),
       'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36',
     };
+    const fastReferer = this.hostIntelligence.getHostReferer(requestUrl);
+    if (fastReferer) headers.referer = fastReferer;
     const credentials = item.browserCredentials;
     if (credentials?.cookies && (!credentials.origin || new URL(requestUrl).origin === credentials.origin)) {
       headers.cookie = credentials.cookies;
@@ -1454,8 +1455,8 @@ export class DownloadEngine {
       'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
       'accept': '*/*',
       'accept-encoding': 'identity', // ranges must arrive uncompressed
-      'referer': referer,
     };
+    if (referer) headers.referer = referer;
     const creds = item.browserCredentials;
     if (creds?.cookies && (!creds.origin || new URL(requestUrl).origin === creds.origin)) {
       headers['cookie'] = creds.cookies;
@@ -1586,9 +1587,9 @@ export class DownloadEngine {
         'Sec-Fetch-Dest': 'empty',
         'Sec-Fetch-Mode': 'cors',
         'Sec-Fetch-Site': 'same-origin',
-        'Referer': referer,
         'Connection': 'keep-alive',
       };
+      if (referer) headers['Referer'] = referer;
 
       // Browser-captured credentials: cookies are host-scoped (only sent to
       // the captured origin, matching browser semantics) while the captured
@@ -2549,8 +2550,9 @@ export class DownloadEngine {
           'Sec-Ch-Ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
           'Sec-Ch-Ua-Mobile': '?0',
           'Sec-Ch-Ua-Platform': '"Windows"',
-          'Referer': this.hostIntelligence.getHostReferer(url),
         };
+        const probeReferer = this.hostIntelligence.getHostReferer(url);
+        if (probeReferer) probeHeaders['Referer'] = probeReferer;
         if (credentials) {
           if (credentials.cookies && (!credentials.origin || parsedUrl.origin === credentials.origin)) {
             probeHeaders['Cookie'] = credentials.cookies;
@@ -2662,9 +2664,10 @@ export class DownloadEngine {
           'Sec-Ch-Ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
           'Sec-Ch-Ua-Mobile': '?0',
           'Sec-Ch-Ua-Platform': '"Windows"',
-          'Referer': this.hostIntelligence.getHostReferer(url),
           'Range': 'bytes=0-0',
         };
+        const getRangeReferer = this.hostIntelligence.getHostReferer(url);
+        if (getRangeReferer) getRangeHeaders['Referer'] = getRangeReferer;
         if (credentials) {
           if (credentials.cookies && (!credentials.origin || parsedUrl.origin === credentials.origin)) {
             getRangeHeaders['Cookie'] = credentials.cookies;
