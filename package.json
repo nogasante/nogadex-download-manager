@@ -129,7 +129,8 @@
     "publish": {
       "provider": "github",
       "owner": "nogasante",
-      "repo": "nogadex-download-manager"
+      "repo": "nogadex-download-manager",
+      "releaseType": "release"
     },
     "win": {
       "target": "nsis",
